@@ -1,0 +1,94 @@
+﻿@inject IJSRuntime JsRuntime
+@inject NavigationManager NavigationManager
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Quran</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="oi oi-home" aria-hidden="true"></span> Sura
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Favorites" Match="NavLinkMatch.All">
+                <span class="oi oi-heart" aria-hidden="true"></span> Favorites
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Notes" Match="NavLinkMatch.All">
+                <span class="oi oi-clipboard" aria-hidden="true"></span> Notes
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Search" Match="NavLinkMatch.All">
+                <span class="oi oi-magnifying-glass" aria-hidden="true"></span> Search
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" @onclick="() => GotoPopUp()" Match="NavLinkMatch.All">
+                <span class="oi oi-share" aria-hidden="true"></span> Goto
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Settings" Match="NavLinkMatch.All">
+                <span class="oi oi-cog" aria-hidden="true"></span> Settings
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="counter">
+                <span class="oi oi-plus" aria-hidden="true"></span> Counter
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="fetchdata">
+                <span class="oi oi-list-rich" aria-hidden="true"></span> Fetch data
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    private async Task GotoPopUp()
+    {
+        string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Input sura and aya number (example: 16:90 or 16/90):"); // Prompt
+        if (!string.IsNullOrEmpty(prompted))
+        {
+            if (prompted.Contains(":") || prompted.Contains("/"))
+            {
+                int suraId, ayaId;
+                if (prompted.IndexOf(":", StringComparison.Ordinal) > 0)
+                {
+                    suraId = Convert.ToInt32(prompted.Split(":")[0]);
+                    ayaId = Convert.ToInt32(prompted.Split(":")[1]);
+                    NavigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
+                    return;
+                }
+                if (prompted.IndexOf("/", StringComparison.Ordinal) > 0)
+                {
+                    suraId = Convert.ToInt32(prompted.Split("/")[0]);
+                    ayaId = Convert.ToInt32(prompted.Split("/")[1]);
+                    NavigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
+                    return;
+                }
+            }
+        }
+        await JsRuntime.InvokeVoidAsync("alert", "Please check your input, it should be look like 16:90 or 16/90"); // Alert
+    }
+
+}

@@ -1,0 +1,35 @@
+﻿@page "/notes"
+@using QuranBlazor.Data
+@inject DBContext db
+
+<div class="mx-4">
+    <h3 class="px-5 py-3 shadow-lg w-100 bg-warning bg-gradient rounded-3">Notes</h3>
+</div>
+
+@foreach (Note note in notes)
+{
+    <div class="row m-3">
+        <div class="col">
+            <div class="card bg-success bg-gradient">
+                <div class="card-body">
+                    <a href="AyaList?SuraId=@note.SuraId#@note.AyaId" target="_top" class="stretched-link text-white">@* &SuraName=@db.GetSuraName(note.SuraId) *@
+                        <div class="vstack">
+                            <h3 class="card-title">@note.Title</h3>
+                            <h4 class="tab-content">@note.Content</h4>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    public IEnumerable<Note> notes => db.GetNotes().Result;
+
+    // private string GetSuraName(int suraId)
+    // {
+    //     return db.GetSuraName(suraId);
+    // }
+
+}

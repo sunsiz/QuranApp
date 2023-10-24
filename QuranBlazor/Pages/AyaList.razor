@@ -1,0 +1,153 @@
+﻿@page "/ayalist"
+@using QuranBlazor.Data
+@inject DBContext db
+@inject IJSRuntime JsRuntime
+@inject NavigationManager NavigationManager
+@implements IDisposable
+<script>
+    function BlazorScrollToId(id) {
+        const element = document.getElementById(id);
+        if (element instanceof HTMLElement) {
+            element.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+                inline: "nearest"
+            });
+        }
+    }
+</script>
+@code {
+    // Handles URL patterns like /search?filter=some+stuff&page=3&assignee=Monica&assignee=Chandler
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int SuraId { get; set; }
+    // [Parameter]
+    // [SupplyParameterFromQuery]
+    public string SuraName => db.GetSuraName(SuraId);
+    private string arabicStyle => "font-size:" + Preferences.Get("ArabicFontSize", 16) + "px";
+    private string textStyle => "font-size:" + Preferences.Get("TranslateFontSize", 14) + "px";
+    private string commentStyle => "font-size:" + Preferences.Get("CommentFontSize", 12) + "px";
+
+    public IEnumerable<Aya> Ayas => db.GetAyaListAsync(SuraId).Result;
+
+    private async void ShareAya(Aya aya)
+    {
+        await Share.Default.RequestAsync(new ShareTextRequest
+        {
+            Text = aya.Text + "\n" + aya.Comment,
+            Title = aya.SuraId + ". Sura, " + aya.AyaId + ". Aya"
+        });
+    }
+
+    private async void Favorite(Aya aya)
+    {
+        aya.IsFavorite = !aya.IsFavorite;
+        await db.UpdateAya(aya);
+    }
+
+    private void Bookmark(Aya aya)
+    {
+        Preferences.Set("Bookmark", aya.SuraId + ":" + aya.AyaId);
+    }
+
+    private async void Note(Aya aya)
+    {
+        if(aya.HasNote)
+        {
+            // await JsRuntime.InvokeVoidAsync("alert", "Warning!"); // Alert
+            bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure?"); // Confirm
+            // string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Take some input:"); // Prompt
+            if (confirmed)
+            {
+                aya.HasNote = false;
+                await db.UpdateAya(aya);
+            }
+            // var note = db.GetNote(aya.AyaId, aya.SuraId);
+            // if (note != null) db.DeleteNote(note);
+            db.DeleteNote(aya.AyaId, aya.SuraId);
+        }
+        else
+        {
+            string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Take some input:"); // Prompt
+            db.AddNote(aya.AyaId, aya.SuraId, SuraName, prompted);
+            aya.HasNote = true;
+            await db.UpdateAya(aya);
+        }
+    }
+
+    private bool IsBookmark(Aya aya)
+    {
+        return Preferences.Get("Bookmark", "") == aya.SuraId + ":" + aya.AyaId;
+    }
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await ScrollToFragment();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+
+    private async void OnLocationChanged(object sender, LocationChangedEventArgs e)
+    {
+        await ScrollToFragment();
+    }
+
+    private async Task ScrollToFragment()
+    {
+        var uri = new Uri(NavigationManager.Uri, UriKind.Absolute);
+        var fragment = uri.Fragment;
+        if (fragment.StartsWith('#'))
+        {
+    // Handle text fragment (https://example.org/#test:~:text=foo)
+    // https://github.com/WICG/scroll-to-text-fragment/
+            var elementId = fragment.Substring(1);
+            // var index = elementId.IndexOf(":~:", StringComparison.Ordinal);
+            // if (index > 0)
+            // {
+            //     elementId = elementId.Substring(0, index);
+            // }
+
+            if (!string.IsNullOrEmpty(elementId))
+            {
+                await JsRuntime.InvokeVoidAsync("BlazorScrollToId", elementId);
+            }
+        }
+    }
+}
+
+<div class="mx-4 hstack shadow-lg bg-warning bg-gradient rounded-3">
+    <h3 class="ps-5 py-3">@SuraId. @SuraName</h3>
+    <span class="text-center arabic mx-auto fs-3 fw-bold">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
+</div>
+@foreach (Aya aya in Ayas)
+{
+    <div class="row m-3" id="@aya.AyaId">
+        <div class="col">
+            <div class="card bg-info bg-gradient">
+                <div class="card-body">
+                    <div class="vstack">
+                        <h5 class="card-title bg-primary bg-gradient hstack rounded-3 gap-3 text-white">
+                            <span class="bg-danger bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.AyaId</span>
+                            <span class="oi oi-share ms-auto" title="Share" aria-hidden="true" @onclick="()=>ShareAya(aya)"></span>
+                            <span class='oi oi-heart @(aya.IsFavorite?"text-warning":"text-white")' title="Favorite" aria-hidden="true" @onclick="()=>Favorite(aya)"></span>
+                            <span class='oi oi-clipboard @(aya.HasNote?"text-warning":"text-white")' title="Note" aria-hidden="true" @onclick="()=>Note(aya)"></span>
+                            <span class='oi oi-bookmark me-3 @(IsBookmark(aya)?"text-warning":"text-white")' title="Bookmark" aria-hidden="true" @onclick="()=>Bookmark(aya)"></span>
+                        </h5>
+                        <p class="arabic fw-bold mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
+                        <p class="my-2" style=@textStyle>@aya.Text</p><hr />
+                        <p style=@commentStyle>@((MarkupString)@aya.Comment)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

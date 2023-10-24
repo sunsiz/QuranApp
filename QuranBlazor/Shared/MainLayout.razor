@@ -1,0 +1,37 @@
+﻿@using QuranBlazor.Data
+@inherits LayoutComponentBase
+@inject NavigationManager navigationManager
+@inject DBContext db
+
+@code {
+    private bool BookmarkExist()
+    {
+        return Preferences.Get("BookMark", "") != "";
+    }
+
+    private void GotoBookmark()
+    {
+            var destination = Preferences.Get("BookMark", "");
+            var suraId = destination.Split(":")[0];
+        var ayaId = destination.Split(":")[1];
+        var url = "AyaList?SuraId=" + suraId + "#" + ayaId;/* + "&SuraName="  @db.GetSuraName(Convert.ToInt32(suraId)) + */
+        navigationManager.NavigateTo(url);
+    }
+
+}
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <span class='oi oi-bookmark me-3 fs-3 @(BookmarkExist()?"nav-pills":"d-none")' title="Bookmark" aria-hidden="true" @onclick="()=>GotoBookmark()"></span>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
