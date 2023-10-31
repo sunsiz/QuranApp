@@ -1,23 +1,28 @@
 ﻿@page "/notes"
 @using QuranBlazor.Data
+@using System.Diagnostics
 @inject DBContext db
 
-<div class="mx-4">
-    <h3 class="px-5 py-3 shadow-lg w-100 bg-warning bg-gradient rounded-3">Notes</h3>
+<div class="text-white text-center mb-3">
+    <h3 class="px-5 py-3 shadow-lg w-100 bg-info bg-gradient rounded-3">Notes</h3>
 </div>
 
 @foreach (Note note in notes)
 {
-    <div class="row m-3">
+    <div class="row my-2">
         <div class="col">
             <div class="card bg-success bg-gradient">
-                <div class="card-body">
-                    <a href="AyaList?SuraId=@note.SuraId#@note.AyaId" target="_top" class="stretched-link text-white">@* &SuraName=@db.GetSuraName(note.SuraId) *@
+                <div class="card-body py-1">
+                    @* &SuraName=@db.GetSuraName(note.SuraId) *@
+                    <div class="hstack">
                         <div class="vstack">
-                            <h3 class="card-title">@note.Title</h3>
-                            <h4 class="tab-content">@note.Content</h4>
+                            <a href="AyaList?SuraId=@note.SuraId#@note.AyaId" target="_top" class="text-white">
+                                <h3 class="card-title mb-0">@note.Title</h3>
+                                <h4 class="tab-content fs-6">@note.Content</h4>
+                            </a>
                         </div>
-                    </a>
+                        <span class="oi oi-trash p-2 fs-3 text-white" role="button" aria-hidden="true" @onclick="()=>DeleteNote(note)"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -25,11 +30,25 @@
 }
 
 @code {
-    public IEnumerable<Note> notes => db.GetNotes().Result;
+    public List<Note> notes => db.GetNotes().Result;
 
     // private string GetSuraName(int suraId)
     // {
     //     return db.GetSuraName(suraId);
     // }
+    private async Task DeleteNote(Note note)
+    {
+        var result = await DisplayConfirm("Are you sure?", "Do you really want to delete this note from list?", "Absoloutly", "Nah").ConfigureAwait(false);
+        if (result)
+        {
+            db.DeleteNote(note.AyaId, note.SuraId);
+            var removed = notes.Remove(notes.Find(a => a.AyaId == note.AyaId && a.SuraId == note.SuraId));
+            Debug.WriteLine("Delete note result is " + removed);
+        }
+    }
 
+    public async Task<bool> DisplayConfirm(string title, string message, string accept, string cancel)
+    {
+        return await Application.Current.MainPage.DisplayAlert(title, message, accept, cancel);
+    }
 }

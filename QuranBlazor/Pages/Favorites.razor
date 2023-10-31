@@ -1,23 +1,28 @@
 ﻿@page "/favorites"
 @using QuranBlazor.Data
+@using System.Diagnostics
 @inject DBContext db
 
-<div class="mx-4">
+<div class="text-center mb-3">
     <h3 class="px-5 py-3 shadow-lg w-100 bg-warning bg-gradient rounded-3">Favorite Ayas</h3>
 </div>
 
 @foreach (Aya aya in Ayas)
 {
-    <div class="row m-3">
+    <div class="row my-2">
         <div class="col">
             <div class="card bg-success bg-gradient">
-                <div class="card-body">
-                    <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="stretched-link text-white">@* &SuraName=@GetSuraName(aya.SuraId) *@
+                <div class="card-body py-1">
+                    @* &SuraName=@GetSuraName(aya.SuraId) *@
+                    <div class="hstack">
                         <div class="vstack">
-                            <h3 class="card-title">@aya.SuraId. @db.GetSuraName(aya.SuraId), @aya.AyaId Aya</h3>
-                            <h4 class="tab-content">@aya.Text.Substring(0, aya.Text.Length>50?50:aya.Text.Length)</h4>
+                            <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="text-white">
+                                <h3 class="card-title mb-0">@aya.SuraId. @db.GetSuraNameAsync(aya.SuraId).Result, @aya.AyaId Aya</h3>
+                                <h4 class="card-body p-0 fs-6">@aya.Text.Substring(0, aya.Text.Length > 50 ? 50 : aya.Text.Length)</h4>
+                            </a>
                         </div>
-                    </a>
+                        <span class="oi oi-trash p-2 fs-3 text-white" role="button" aria-hidden="true" @onclick="()=>DeleteFavorite(aya)"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -25,11 +30,25 @@
 }
 
 @code {
-    public IEnumerable<Aya> Ayas => db.GetFavorites().Result;
+    public List<Aya> Ayas => db.GetFavorites().Result;
 
     // private string GetSuraName(int suraId)
     // {
     //     return db.GetSuraName(suraId);
     // }
+    private async Task DeleteFavorite(Aya aya)
+    {
+        var result = await DisplayConfirm("Are you sure?", "Do you really want to delete this aya from favorite list?", "Absoloutly", "Nah").ConfigureAwait(false);
+        if (result)
+        {
+            db.DeleteFavorite(aya.AyaId, aya.SuraId);
+            var removed = Ayas.Remove(Ayas.Find(a => a.AyaId == aya.AyaId && a.SuraId == aya.SuraId));
+            Debug.WriteLine("Delete favorite aya result is " + removed);
+        }
+    }
 
+    public async Task<bool> DisplayConfirm(string title, string message, string accept, string cancel)
+    {
+        return await Application.Current.MainPage.DisplayAlert(title, message, accept, cancel);
+    }
 }

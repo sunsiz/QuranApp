@@ -1,0 +1,8 @@
+﻿<svg version="1.1" id="Inside_Border" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 30 30" style="enable-background:new 0 0 30 30;" xml:space="preserve">
+<style type="text/css">
+	.white_icon {
+		fill: #FFFFFF;
+	}
+</style>
+<path class="white_icon" d="M16.5,28.5V6l9.8,9.7c0.5,0.5,1.2,0.6,1.8,0.3l0,0c1-0.5,1.2-1.8,0.4-2.5L15,0L1.5,13.4  c-0.8,0.8-0.6,2.1,0.4,2.5l0,0c0.6,0.3,1.4,0.2,1.8-0.3L13.5,6v22.5c0,0.8,0.7,1.5,1.5,1.5C15.8,30,16.5,29.3,16.5,28.5z" />
+</svg>

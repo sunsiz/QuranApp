@@ -3,18 +3,34 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>QuranBlazor</title>
+    <title>Quran</title>
     <base href="/" />
     <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
     <link href="css/app.css" rel="stylesheet" />
     <link href="QuranBlazor.styles.css" rel="stylesheet" />
 </head>
+<style>
+    .spinner {
+        height: calc(100vh - 3.5rem);
+    }
 
+        .spinner > .grow {
+            top: 50%;
+            transform: translate(0%, -50%);
+        }
+    body{ background-color: blanchedalmond;}
+</style>
 <body>
 
     <div class="status-bar-safe-area"></div>
 
-    <div id="app">Loading...</div>
+    <div id="app">
+        <div class="d-flex justify-content-center align-self-center align-items-center spinner text-primary">
+            <div class="spinner-grow m-5" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
 
     <div id="blazor-error-ui">
         An unhandled error has occurred.

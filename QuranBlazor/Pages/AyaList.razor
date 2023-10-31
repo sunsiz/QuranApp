@@ -9,11 +9,15 @@
         const element = document.getElementById(id);
         if (element instanceof HTMLElement) {
             element.scrollIntoView({
-                behavior: "smooth",
+                behavior: "auto",
                 block: "start",
-                inline: "nearest"
+                inline: "center"
             });
         }
+    }
+    // When the user clicks the button, the page scrolls to the top
+    function BlazorScrollToTop() {
+        document.documentElement.scroll(0,0);
     }
 </script>
 @code {
@@ -24,7 +28,7 @@
     public int SuraId { get; set; }
     // [Parameter]
     // [SupplyParameterFromQuery]
-    public string SuraName => db.GetSuraName(SuraId);
+    public string SuraName => db.GetSuraNameAsync(SuraId).Result;
     private string arabicStyle => "font-size:" + Preferences.Get("ArabicFontSize", 16) + "px";
     private string textStyle => "font-size:" + Preferences.Get("TranslateFontSize", 14) + "px";
     private string commentStyle => "font-size:" + Preferences.Get("CommentFontSize", 12) + "px";
@@ -34,10 +38,10 @@
     private async void ShareAya(Aya aya)
     {
         await Share.Default.RequestAsync(new ShareTextRequest
-        {
-            Text = aya.Text + "\n" + aya.Comment,
-            Title = aya.SuraId + ". Sura, " + aya.AyaId + ". Aya"
-        });
+            {
+                Text = aya.Text + "\n" + aya.Comment,
+                Title = aya.SuraId + ". Sura, " + aya.AyaId + ". Aya"
+            });
     }
 
     private async void Favorite(Aya aya)
@@ -53,11 +57,11 @@
 
     private async void Note(Aya aya)
     {
-        if(aya.HasNote)
+        if (aya.HasNote)
         {
             // await JsRuntime.InvokeVoidAsync("alert", "Warning!"); // Alert
             bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure?"); // Confirm
-            // string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Take some input:"); // Prompt
+                                                                                            // string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Take some input:"); // Prompt
             if (confirmed)
             {
                 aya.HasNote = false;
@@ -107,8 +111,8 @@
         var fragment = uri.Fragment;
         if (fragment.StartsWith('#'))
         {
-    // Handle text fragment (https://example.org/#test:~:text=foo)
-    // https://github.com/WICG/scroll-to-text-fragment/
+            // Handle text fragment (https://example.org/#test:~:text=foo)
+            // https://github.com/WICG/scroll-to-text-fragment/
             var elementId = fragment.Substring(1);
             // var index = elementId.IndexOf(":~:", StringComparison.Ordinal);
             // if (index > 0)
@@ -122,17 +126,21 @@
             }
         }
     }
+    private async Task BackToTop()
+    {
+        await JsRuntime.InvokeVoidAsync("BlazorScrollToTop");
+    }
 }
 
-<div class="mx-4 hstack shadow-lg bg-warning bg-gradient rounded-3">
-    <h3 class="ps-5 py-3">@SuraId. @SuraName</h3>
-    <span class="text-center arabic mx-auto fs-3 fw-bold">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
+<div class="text-center vstack shadow-lg bg-warning bg-gradient rounded-3">
+    <h3 class="pt-3 pb-0 text-success">@SuraId. @SuraName</h3>
+    <span class="text-center arabic mx-auto fs-3 pb-2 pt-0">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
 </div>
 @foreach (Aya aya in Ayas)
 {
-    <div class="row m-3" id="@aya.AyaId">
+    <div class="row my-3" id="@aya.AyaId">
         <div class="col">
-            <div class="card bg-info bg-gradient">
+            <div class="card bg-light bg-gradient">
                 <div class="card-body">
                     <div class="vstack">
                         <h5 class="card-title bg-primary bg-gradient hstack rounded-3 gap-3 text-white">
@@ -142,12 +150,19 @@
                             <span class='oi oi-clipboard @(aya.HasNote?"text-warning":"text-white")' title="Note" aria-hidden="true" @onclick="()=>Note(aya)"></span>
                             <span class='oi oi-bookmark me-3 @(IsBookmark(aya)?"text-warning":"text-white")' title="Bookmark" aria-hidden="true" @onclick="()=>Bookmark(aya)"></span>
                         </h5>
-                        <p class="arabic fw-bold mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
-                        <p class="my-2" style=@textStyle>@aya.Text</p><hr />
-                        <p style=@commentStyle>@((MarkupString)@aya.Comment)</p>
+                        <p class="arabic mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
+                        <p class="my-2" style=@textStyle>@aya.Text</p>
+                        @if (aya.Comment != null)
+                        {
+                            <hr />
+                            <p style=@commentStyle>
+                                @((MarkupString)aya.Comment)
+                            </p>
+                        }
                     </div>
                 </div>
             </div>
         </div>
     </div>
 }
+<div id="BackToTop" class="Shown" @onclick="BackToTop"></div>

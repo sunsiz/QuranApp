@@ -92,3 +92,34 @@ a, .btn-link {
     scroll-margin-top: 4rem;
 }
 .search-term{ background-color: blanchedalmond;}
+/*.spinner {
+    height: calc(100vh - 3.5rem);
+    top: 50%;
+    transform: translate(0%, -50%);
+}*/
+#BackToTop.Shown {
+    opacity: 1;
+    pointer-events: auto;
+}
+#BackToTop {
+    position: fixed;
+    right: 25px;
+    bottom: 30px;
+    width: 60px;
+    height: 60px;
+    background-image: url('../BackToTop.svg?w=30&h=30');
+    background-repeat: no-repeat;
+    background-position: center center;
+    -webkit-background-size: 30px 30px;
+    background-size: 30px;
+    background-color: rgba(0,0,0,.5);
+    -webkit-border-radius: 3px;
+    border-radius: 3px;
+    cursor: pointer;
+    -webkit-transition: opacity linear 200ms;
+    -o-transition: opacity linear 200ms;
+    transition: opacity linear 200ms;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 999999;
+}

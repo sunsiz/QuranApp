@@ -132,12 +132,6 @@ After:
             return conn.Table<Note>().FirstOrDefault(n => n.AyaId == ayaId && n.SuraId == suraId);
         }
 
-        public void DeleteNote(int ayaId, int suraId)
-        {
-            Debug.WriteLine("Delete note result is:" +
-                            conn.Table<Note>().Delete(n => n.AyaId == ayaId && n.SuraId == suraId));
-        }
-
         public void AddNote(int ayaId, int suraId, string suraName, string note)
         {
             Debug.WriteLine("Add note result is:" + conn.Insert(new Note()
@@ -147,18 +141,40 @@ After:
             }));
         }
 
-        public async Task<IEnumerable<Aya>> GetFavorites()
+        public void DeleteNote(int ayaId, int suraId)
+        {
+            //Debug.WriteLine("Delete note result is:" +
+            //                conn.Table<Note>().Delete(n => n.AyaId == ayaId && n.SuraId == suraId));
+            var note = conn.Table<Note>().FirstOrDefault(n => n.SuraId == suraId && n.AyaId == ayaId);
+            var noteResult = conn.Delete(note);
+            Debug.WriteLine("Delete note result is:" + noteResult);
+            var aya = conn.Table<Aya>().FirstOrDefault(a => a.SuraId == suraId && a.AyaId == ayaId);
+            aya.HasNote = false;
+            var result = conn.Update(aya);
+            Debug.WriteLine("Delete has note from aya result is:" + result);
+        }
+
+        public async Task<List<Aya>> GetFavorites()
         {
             await InitializeAsync();
             return conn.Table<Aya>().Where(a => a.IsFavorite == true).ToList();
         }
 
-        public string GetSuraName(int suraId)
+        public void DeleteFavorite(int ayaId, int suraId)
         {
+            var aya = conn.Table<Aya>().FirstOrDefault(a => a.SuraId == suraId && a.AyaId == ayaId);
+            aya.IsFavorite = false;
+            var result = conn.Update(aya);
+            Debug.WriteLine("Delete favorite aya result is:" + result);
+        }
+
+        public async Task<string> GetSuraNameAsync(int suraId)
+        {
+            await InitializeAsync();
             return conn.Table<Sura>().FirstOrDefault(s => s.Id == suraId).Name;
         }
 
-        public async Task<IEnumerable<Note>> GetNotes()
+        public async Task<List<Note>> GetNotes()
         {
             await InitializeAsync();
             return conn.Table<Note>().ToList();
