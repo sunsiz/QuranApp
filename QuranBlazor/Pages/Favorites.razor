@@ -2,26 +2,27 @@
 @using QuranBlazor.Data
 @using System.Diagnostics
 @inject DBContext db
+@inject DialogService Dialog
 
 <div class="text-center mb-3">
-    <h3 class="px-5 py-3 shadow-lg w-100 bg-warning bg-gradient rounded-3">Favorite Ayas</h3>
+    <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white">Белгиланган оятлар</h3>
 </div>
 
 @foreach (Aya aya in Ayas)
 {
     <div class="row my-2">
         <div class="col">
-            <div class="card bg-success bg-gradient">
+            <div class="card bg-light bg-gradient rounded-pill">
                 <div class="card-body py-1">
                     @* &SuraName=@GetSuraName(aya.SuraId) *@
                     <div class="hstack">
                         <div class="vstack">
-                            <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="text-white">
-                                <h3 class="card-title mb-0">@aya.SuraId. @db.GetSuraNameAsync(aya.SuraId).Result, @aya.AyaId Aya</h3>
+                            <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="text-black">
+                                <h3 class="card-title mb-0">@aya.SuraId. @db.GetSuraNameAsync(aya.SuraId).Result, @aya.AyaId оят</h3>
                                 <h4 class="card-body p-0 fs-6">@aya.Text.Substring(0, aya.Text.Length > 50 ? 50 : aya.Text.Length)</h4>
                             </a>
                         </div>
-                        <span class="oi oi-trash p-2 fs-3 text-white" role="button" aria-hidden="true" @onclick="()=>DeleteFavorite(aya)"></span>
+                        <span class="oi oi-trash p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="()=>DeleteFavorite(aya)"></span>
                     </div>
                 </div>
             </div>
@@ -38,12 +39,13 @@
     // }
     private async Task DeleteFavorite(Aya aya)
     {
-        var result = await DisplayConfirm("Are you sure?", "Do you really want to delete this aya from favorite list?", "Absoloutly", "Nah").ConfigureAwait(false);
+        var result = await DisplayConfirm("Ишончингиз комилми?", "Сиз белгилаган оят ўчирилади. Ишончингиз комилми?", "Ҳа", "Йўқ").ConfigureAwait(false);
         if (result)
         {
-            db.DeleteFavorite(aya.AyaId, aya.SuraId);
+            var deleted=db.DeleteFavorite(aya.AyaId, aya.SuraId);
             var removed = Ayas.Remove(Ayas.Find(a => a.AyaId == aya.AyaId && a.SuraId == aya.SuraId));
             Debug.WriteLine("Delete favorite aya result is " + removed);
+            if (deleted > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Белгиланган оят олиб ташланди"));
         }
     }
 

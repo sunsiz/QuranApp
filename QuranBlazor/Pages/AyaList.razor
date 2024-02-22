@@ -3,9 +3,11 @@
 @inject DBContext db
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavigationManager
+@inject DialogService Dialog
 @implements IDisposable
 <script>
     function BlazorScrollToId(id) {
+        console.log("Scrolling element id is " + id);
         const element = document.getElementById(id);
         if (element instanceof HTMLElement) {
             element.scrollIntoView({
@@ -17,7 +19,11 @@
     }
     // When the user clicks the button, the page scrolls to the top
     function BlazorScrollToTop() {
-        document.documentElement.scroll(0,0);
+        window.scrollTo(0, 0);// let maincontent = document.getElementById('surahead'); //document.getElementsByClassName('maincontent')[0].scrollTop = 0;//window.scrollTo(0,0);// document.documentElement.scroll(0, 0);
+        // if (maincontent != null) {
+        //     console.log(maincontent.scrollTop + " is the maincontent scrollTop");
+        //     maincontent.scrollTop = 0;
+        // }
     }
 </script>
 @code {
@@ -32,15 +38,16 @@
     private string arabicStyle => "font-size:" + Preferences.Get("ArabicFontSize", 16) + "px";
     private string textStyle => "font-size:" + Preferences.Get("TranslateFontSize", 14) + "px";
     private string commentStyle => "font-size:" + Preferences.Get("CommentFontSize", 12) + "px";
+    private string bookmarkAya = Preferences.Get("Bookmark", "");
 
-    public IEnumerable<Aya> Ayas => db.GetAyaListAsync(SuraId).Result;
+    public IEnumerable<Aya> Ayas { get; set; }
 
     private async void ShareAya(Aya aya)
     {
         await Share.Default.RequestAsync(new ShareTextRequest
             {
                 Text = aya.Text + "\n" + aya.Comment,
-                Title = aya.SuraId + ". Sura, " + aya.AyaId + ". Aya"
+                Title = aya.SuraId + ". Сура, " + aya.AyaId + ". Оят"
             });
     }
 
@@ -48,11 +55,13 @@
     {
         aya.IsFavorite = !aya.IsFavorite;
         await db.UpdateAya(aya);
+        Dialog.DisplayToast("Оят белгиланди");
     }
 
-    private void Bookmark(Aya aya)
+    private async void Bookmark(Aya aya)
     {
         Preferences.Set("Bookmark", aya.SuraId + ":" + aya.AyaId);
+        Dialog.DisplayToast("Сўнги ўқиган оятингиз деб белгиланди");
     }
 
     private async void Note(Aya aya)
@@ -60,33 +69,50 @@
         if (aya.HasNote)
         {
             // await JsRuntime.InvokeVoidAsync("alert", "Warning!"); // Alert
-            bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure?"); // Confirm
-                                                                                            // string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Take some input:"); // Prompt
+            // bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure?"); // Confirm
+            // string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Take some input:"); // Prompt
+            var confirmed = await Dialog.DisplayAlert("Огоҳлантириш", "Бу оят учун аллақачон эслатма қўшилган, агар давом этсангиз эски эслатма ўчирилади, уни ўчириб ташламоқчимисиз?", "Ҳа, эскисини ўчириб ташланг", "Йўқ").ConfigureAwait(false);
             if (confirmed)
             {
-                aya.HasNote = false;
-                await db.UpdateAya(aya);
+                // var note = await DialogService.DisplayPrompt("Not ekle", "Ayet için not ekleyin", "Ekle", "Kapat").ConfigureAwait(false);
+                // if (!string.IsNullOrEmpty(note))
+                // {
+                    aya.HasNote = false;
+                    await db.UpdateAya(aya).ConfigureAwait(false);
+                var result=db.DeleteNote(aya.AyaId, aya.SuraId);
+                if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Оят қайди ўчирилди"));
+                // Note(aya);
+                    // var result = db.UpdateNote(aya.AyaId, aya.SuraId).Result;
+                //     if (result > 0) await DialogService.DisplayToast("Ayet notu güncellendi.").ConfigureAwait(false);
+                // }
             }
             // var note = db.GetNote(aya.AyaId, aya.SuraId);
             // if (note != null) db.DeleteNote(note);
-            db.DeleteNote(aya.AyaId, aya.SuraId);
+            // db.DeleteNote(aya.AyaId, aya.SuraId);
         }
         else
         {
-            string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Take some input:"); // Prompt
-            db.AddNote(aya.AyaId, aya.SuraId, SuraName, prompted);
-            aya.HasNote = true;
-            await db.UpdateAya(aya);
+            var note = await Dialog.DisplayPrompt("Эслатма қўшинг", "Оятга эслатма қўшинг", "Қўшиш", "Ёпиш").ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(note))
+            {
+                // string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Take some input:"); // Prompt
+                var result=db.AddNote(aya.AyaId, aya.SuraId, SuraName, note);
+                aya.HasNote = true;
+                await db.UpdateAya(aya).ConfigureAwait(false);
+                if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Оят эслатмаси қўшилди"));
+            }
         }
+
     }
 
-    private bool IsBookmark(Aya aya)
-    {
-        return Preferences.Get("Bookmark", "") == aya.SuraId + ":" + aya.AyaId;
-    }
+    // private bool IsBookmark(Aya aya)
+    // {
+    //     return Preferences.Get("Bookmark", "") == aya.SuraId + ":" + aya.AyaId;
+    // }
 
     protected override void OnInitialized()
     {
+        Ayas = db.GetAyaListAsync(SuraId).Result;
         NavigationManager.LocationChanged += OnLocationChanged;
     }
 
@@ -128,27 +154,38 @@
     }
     private async Task BackToTop()
     {
-        await JsRuntime.InvokeVoidAsync("BlazorScrollToTop");
+        await JsRuntime.InvokeVoidAsync("BlazorScrollToTop");// await JsRuntime.InvokeVoidAsync("BlazorScrollToId", "maincontent");
+    }
+    string AyaFilter;
+
+    private void FilterAya()
+    {
+        Ayas = Ayas.Where(a => a.Text.Contains(AyaFilter, StringComparison.OrdinalIgnoreCase) || (a.Comment != null && a.Comment.Contains(AyaFilter, StringComparison.OrdinalIgnoreCase)));
     }
 }
 
-<div class="text-center vstack shadow-lg bg-warning bg-gradient rounded-3">
-    <h3 class="pt-3 pb-0 text-success">@SuraId. @SuraName</h3>
-    <span class="text-center arabic mx-auto fs-3 pb-2 pt-0">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
+<div class="text-white mb-3 form-floating">
+    <input class="form-control me-2 rounded-pill primary-color" id="floatingSearch" type="search" placeholder="Оят Излаш" @bind="AyaFilter" @bind:event="oninput" @bind:after="FilterAya" aria-label="Оят Излаш">
+    <label class="primary-color" for="floatingSearch">Оят Излаш</label>
+</div>
+
+<div class="text-center vstack shadow-lg bg-light bg-gradient rounded-pill" id="surahead">
+    <h3 class="pt-3 pb-0 text-black">@SuraId. @SuraName сураси</h3>
+    @if (SuraId is not (1 or 9)){<span class="text-center arabic mx-auto fs-2 pb-2 pt-0">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>}
 </div>
 @foreach (Aya aya in Ayas)
 {
     <div class="row my-3" id="@aya.AyaId">
         <div class="col">
-            <div class="card bg-light bg-gradient">
+            <div class="card bg-light bg-gradient rounded-pill">
                 <div class="card-body">
                     <div class="vstack">
-                        <h5 class="card-title bg-primary bg-gradient hstack rounded-3 gap-3 text-white">
-                            <span class="bg-danger bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.AyaId</span>
-                            <span class="oi oi-share ms-auto" title="Share" aria-hidden="true" @onclick="()=>ShareAya(aya)"></span>
-                            <span class='oi oi-heart @(aya.IsFavorite?"text-warning":"text-white")' title="Favorite" aria-hidden="true" @onclick="()=>Favorite(aya)"></span>
-                            <span class='oi oi-clipboard @(aya.HasNote?"text-warning":"text-white")' title="Note" aria-hidden="true" @onclick="()=>Note(aya)"></span>
-                            <span class='oi oi-bookmark me-3 @(IsBookmark(aya)?"text-warning":"text-white")' title="Bookmark" aria-hidden="true" @onclick="()=>Bookmark(aya)"></span>
+                        <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
+                            <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.AyaId</span>
+                            @* <span class="oi oi-share ms-auto" title="Share" aria-hidden="true" @onclick="()=>ShareAya(aya)"><img src="target.svg" width="28px" height="28px" alt="paylaş" /></span> *@
+                            @* oi oi-heart *@<span class=' @(aya.IsFavorite?"text-warning":"text-white")' title="Оятни белгилаш" aria-hidden="true" @onclick="()=>Favorite(aya)"><img src="pin.png" width="28px" height="28px" alt="Оятни белгилаш" /></span>
+                            @* oi oi-clipboard *@<span class=' @(aya.HasNote?"text-warning":"text-white")' title="Эслатма қўшинг" aria-hidden="true" @onclick="()=>Note(aya)"><img src="note.png" width="28px" height="28px" alt="Эслатма қўшинг" /></span>
+                            @* oi oi-bookmark *@<span class=' me-3 @(SuraId+":"+aya.Id==bookmarkAya)?"text-warning":"text-white")' title="Сўнг ўқилган оят деб белгилаш" aria-hidden="true" @onclick="()=>Bookmark(aya)"><img src="bookmark.png" width="28px" height="28px" alt="Сўнг ўқилган оят деб белгилаш" /></span>
                         </h5>
                         <p class="arabic mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
                         <p class="my-2" style=@textStyle>@aya.Text</p>

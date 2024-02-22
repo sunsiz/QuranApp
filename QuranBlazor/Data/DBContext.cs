@@ -132,26 +132,57 @@ After:
             return conn.Table<Note>().FirstOrDefault(n => n.AyaId == ayaId && n.SuraId == suraId);
         }
 
-        public void AddNote(int ayaId, int suraId, string suraName, string note)
+        public int AddNote(int ayaId, int suraId, string suraName, string note)
         {
-            Debug.WriteLine("Add note result is:" + conn.Insert(new Note()
+            int result=0;
+            try
             {
-                AyaId = ayaId, Content = note, SuraId = suraId,
-                Title = suraId + ". Sura " + suraName + ", " + ayaId + ". Aya"
-            }));
+                var newNote = new Note()
+                {
+                    AyaId = ayaId,
+                    Content = note,
+                    SuraId = suraId,
+                    Title = suraId + ". Сура " + suraName + ", " + ayaId + ". Оят"
+                };
+                result = conn.Insert(newNote);
+                Debug.WriteLine("Add note result is:" + result);
+            }
+            catch (Exception exception)
+            {
+                Debug.WriteLine(exception.Message);
+            }
+            return result;
         }
 
-        public void DeleteNote(int ayaId, int suraId)
+        public int DeleteNote(int ayaId, int suraId)
         {
             //Debug.WriteLine("Delete note result is:" +
             //                conn.Table<Note>().Delete(n => n.AyaId == ayaId && n.SuraId == suraId));
             var note = conn.Table<Note>().FirstOrDefault(n => n.SuraId == suraId && n.AyaId == ayaId);
-            var noteResult = conn.Delete(note);
-            Debug.WriteLine("Delete note result is:" + noteResult);
+            if (note != null)
+            {
+                var noteResult = conn.Delete(note);
+                Debug.WriteLine("Delete note result is:" + noteResult);
+            }
+
             var aya = conn.Table<Aya>().FirstOrDefault(a => a.SuraId == suraId && a.AyaId == ayaId);
             aya.HasNote = false;
             var result = conn.Update(aya);
             Debug.WriteLine("Delete has note from aya result is:" + result);
+            return result;
+        }
+
+        public async Task<int> UpdateNote(int ayaId, int suraId)
+        {
+            int result = -1;
+            var note = conn.Table<Note>().FirstOrDefault(n => n.SuraId == suraId && n.AyaId == ayaId);
+            if (note != null)
+            {
+                await InitializeAsync();
+                result = conn.Update(note);
+                Debug.WriteLine(result);
+            }
+            return result;
         }
 
         public async Task<List<Aya>> GetFavorites()
@@ -160,16 +191,18 @@ After:
             return conn.Table<Aya>().Where(a => a.IsFavorite == true).ToList();
         }
 
-        public void DeleteFavorite(int ayaId, int suraId)
+        public int DeleteFavorite(int ayaId, int suraId)
         {
             var aya = conn.Table<Aya>().FirstOrDefault(a => a.SuraId == suraId && a.AyaId == ayaId);
             aya.IsFavorite = false;
             var result = conn.Update(aya);
             Debug.WriteLine("Delete favorite aya result is:" + result);
+            return result;
         }
 
         public async Task<string> GetSuraNameAsync(int suraId)
         {
+            if (suraId == 0) return "";
             await InitializeAsync();
             return conn.Table<Sura>().FirstOrDefault(s => s.Id == suraId).Name;
         }

@@ -1,0 +1,53 @@
+﻿<div class="modal @modalClass" tabindex="-1" role="dialog" data-backdrop="false" style="display:@modalDisplay; overflow-y: auto;">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-black">@Title</h5>
+                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close" @onclick="Close">
+                </button>
+            </div>
+            <div class="modal-body">
+                @Body
+            </div>
+            <div class="modal-footer">
+                @Footer
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (showBackdrop)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter]
+    public RenderFragment Title { get; set; }
+
+    [Parameter]
+    public RenderFragment Body { get; set; }
+
+    [Parameter]
+    public RenderFragment Footer { get; set; }
+
+    private string modalDisplay = "none;";
+    private string modalClass = string.Empty;
+    private bool showBackdrop = false;
+
+    public async Task Open()
+    {
+        modalDisplay = "block";
+        await Task.Delay(100);//Delay allows bootstrap to perform nice fade animation
+        modalClass = "show";
+        showBackdrop = true;
+    }
+
+    public async Task Close()
+    {
+        modalDisplay = "none";
+        await Task.Delay(250);
+        modalClass = string.Empty;
+        showBackdrop = false;
+    }
+}

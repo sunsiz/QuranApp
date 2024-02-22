@@ -2,26 +2,27 @@
 @using QuranBlazor.Data
 @using System.Diagnostics
 @inject DBContext db
+@inject DialogService Dialog
 
 <div class="text-white text-center mb-3">
-    <h3 class="px-5 py-3 shadow-lg w-100 bg-info bg-gradient rounded-3">Notes</h3>
+    <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white">Қайдлар</h3>
 </div>
 
 @foreach (Note note in notes)
 {
     <div class="row my-2">
         <div class="col">
-            <div class="card bg-success bg-gradient">
+            <div class="card bg-light bg-gradient rounded-pill">
                 <div class="card-body py-1">
                     @* &SuraName=@db.GetSuraName(note.SuraId) *@
                     <div class="hstack">
                         <div class="vstack">
-                            <a href="AyaList?SuraId=@note.SuraId#@note.AyaId" target="_top" class="text-white">
+                            <a href="AyaList?SuraId=@note.SuraId#@note.AyaId" target="_top" class="text-black">
                                 <h3 class="card-title mb-0">@note.Title</h3>
                                 <h4 class="tab-content fs-6">@note.Content</h4>
                             </a>
                         </div>
-                        <span class="oi oi-trash p-2 fs-3 text-white" role="button" aria-hidden="true" @onclick="()=>DeleteNote(note)"></span>
+                        <span class="oi oi-trash p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="()=>DeleteNote(note)"></span>
                     </div>
                 </div>
             </div>
@@ -38,12 +39,13 @@
     // }
     private async Task DeleteNote(Note note)
     {
-        var result = await DisplayConfirm("Are you sure?", "Do you really want to delete this note from list?", "Absoloutly", "Nah").ConfigureAwait(false);
+        var result = await DisplayConfirm("Ҳақиқатан ҳам ўчирмоқчимисиз?", "Сиз белгилаган қайд ўчирилади. Ишончингиз комилми?", "Ҳа", "Йўқ").ConfigureAwait(false);
         if (result)
         {
-            db.DeleteNote(note.AyaId, note.SuraId);
+            var deleted = db.DeleteNote(note.AyaId, note.SuraId);
             var removed = notes.Remove(notes.Find(a => a.AyaId == note.AyaId && a.SuraId == note.SuraId));
-            Debug.WriteLine("Delete note result is " + removed);
+            Debug.WriteLine("Delete note result is " + removed); 
+            if (deleted > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Қайдлардан олиб ташланди"));
         }
     }
 

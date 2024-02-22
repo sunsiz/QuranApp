@@ -18,23 +18,26 @@
     }
 }
 <div class="mx-0">
-    <div class="card bg-light bg-gradient">
-        <h3 class="px-5 py-3 shadow-lg w-100 bg-warning bg-gradient rounded-3 card-title">Settings</h3>
+    <div class="card bg-light bg-gradient rounded-pill">
+        <h3 class="px-5 py-2 shadow-lg w-100 card-bg-color bg-gradient rounded-pill card-title oi oi-cog text-black fw-bold"> Созламалар</h3>
         <div class="card-body">
-            <div class="vstack border-3 p-2 m-2 rounded-3 bg-info bg-gradient shadow-sm">
-                <h5 class="card-title hstack gap-3 text-white">Arabic Font Size</h5>
-                <label for="arabicRange" class="form-label">Current font size: @ArabicFontSize px</label>
-                <input type="range" class="form-range" min="10" max="26" step="1" id="arabicRange" @bind-value="@ArabicFontSize">
+            <div class="vstack border-3 p-2 m-2 my-3 rounded-pill bg-light bg-gradient shadow-sm">
+                <h5 class="card-title hstack gap-3 text-black">Арабча матн ҳажми</h5>
+                @* <label for="arabicRange" class="form-label">Şimdiki Yazı Boyutu: @ArabicFontSize px</label> *@
+                <input type="range" class="form-range" min="10" max="36" step="1" id="arabicRange" @bind-value="@ArabicFontSize" @bind-value:event="oninput">
+                <label style="font-size: @(ArabicFontSize)px; direction: rtl;" class="form-label arabic">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</label>
             </div>
-            <div class="vstack border-3 p-2 m-2 bg-gradient bg-info rounded-3 shadow-sm">
-                <h5 class="card-title hstack gap-3 text-white">Translate Font Size</h5>
-                <label for="translateRange" class="form-label">Current font size: @TranslateFontSize px</label>
+            <div class="vstack border-3 p-2 m-2 m-3 bg-gradient bg-light rounded-pill shadow-sm">
+                <h5 class="card-title hstack gap-3 text-black">Шрифт ҳажми</h5>
+                @* <label for="translateRange" class="form-label">Şimdiki Yazı Boyutu: @TranslateFontSize px</label> *@
                 <input type="range" class="form-range" min="12" max="28" step="1" id="translateRange" @bind-value="@TranslateFontSize">
+                <label style="font-size: @(TranslateFontSize)px;" class="form-label">Марҳамати чексиз ва яхшилик қилувчи – Аллоҳ номи билан.</label>
             </div>
-            <div class="vstack border-3 p-2 m-2 bg-gradient bg-info rounded-3 shadow-sm">
-                <h5 class="card-title hstack gap-3 text-white">Comment Font Size</h5>
-                <label for="commentRange" class="form-label">Current font size: @CommentFontSize px</label>
+            <div class="vstack border-3 p-2 m-2 my-3 bg-gradient bg-light rounded-pill shadow-sm">
+                <h5 class="card-title hstack gap-3 text-black">Изоҳ матн ҳажми</h5>
+                @* <label for="commentRange" class="form-label">Şimdiki Yazı Boyutu: @CommentFontSize px</label> *@
                 <input type="range" class="form-range" min="6" max="24" step="1" id="commentRange" @bind-value="@CommentFontSize">
+                <label style="font-size: @(CommentFontSize)px;" class="form-label">«Раҳмон ва Раҳим» калималари «раҳмат» (رحمة) ўзагидан турланган сифатлардир.</label>
             </div>
         </div>
     </div>

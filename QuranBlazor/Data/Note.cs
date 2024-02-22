@@ -9,7 +9,7 @@ namespace QuranBlazor.Data
 {
     public class Note
     {
-        [PrimaryKey]
+        [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
         public int SuraId { get; set; }
         public int AyaId { get; set; }

@@ -91,7 +91,7 @@ a, .btn-link {
 *[id] {
     scroll-margin-top: 4rem;
 }
-.search-term{ background-color: blanchedalmond;}
+.search-term{ background-color: darkseagreen; color: white;}
 /*.spinner {
     height: calc(100vh - 3.5rem);
     top: 50%;
@@ -122,4 +122,16 @@ a, .btn-link {
     opacity: 0;
     pointer-events: none;
     z-index: 999999;
+}
+.card-bg-color {
+    background: #D9B79A;
+}
+.header-bg-color {
+    background: #BF9B7A;
+}
+.primary-color {
+    color: #D9B79A;
+}
+.rounded-pill {
+    border-radius: 1.5rem !important;
 }
