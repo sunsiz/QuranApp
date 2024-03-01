@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using SQLite;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.VisualBasic;
-using SQLite;
+using System.Globalization;
 
 namespace QuranBlazor.Data
 {
@@ -217,6 +212,16 @@ After:
         {
             await InitializeAsync();
             if (string.IsNullOrEmpty(keyWord)) return null;
+            var keyWordL = keyWord.ToLower(new CultureInfo("uz-Cyrl"));
+            //return conn.Query<Aya>("SELECT * FROM Aya WHERE Text LIKE '%"+keyWord+"%';");
+            //return conn.Table<Aya>().Where(a => a.Text.Contains(keyWord)).ToList();
+            //return from aya in conn.Table<Aya>() where aya.Text.Contains(keyWord) || aya.Text.Contains(keyWordL) select aya;
+            //return conn.Table<Aya>().Where(a => EF.Functions.Like(a.Text, $"%{keyWord}%")).ToList();
+            //return conn.Table<Aya>().Where(a => a.Text.IndexOf(keyWord, StringComparison.OrdinalIgnoreCase) != -1 || a.Comment.IndexOf(keyWord, StringComparison.OrdinalIgnoreCase) != -1).ToList();
+            //return conn.Table<Aya>().Where(a => (a.Text??string.Empty).ToLower().Contains(keyWord.ToLower()) || (a.Comment??string.Empty).ToLower().Contains(keyWord.ToLower())).ToList();
+            //return conn.Table<Aya>().Where(a => a.Text.ToLower().Contains(keyWord.ToLower()) || a.Comment.ToLower().Contains(keyWord.ToLower())).ToList();
+            //return conn.Table<Aya>().Where(a => string.Compare(a.Text, keyWord, StringComparison.InvariantCultureIgnoreCase) == 0 || string.Compare(a.Comment, keyWord, StringComparison.InvariantCultureIgnoreCase) == 0).ToList();
+            //return conn.Table<Aya>().Where(a => a.Text.Contains(keyWord, StringComparison.OrdinalIgnoreCase) || a.Comment.Contains(keyWord, StringComparison.OrdinalIgnoreCase)).ToList();
             return conn.Table<Aya>().Where(a => a.Text.Contains(keyWord) || a.Comment.Contains(keyWord)).ToList();
         }
     }

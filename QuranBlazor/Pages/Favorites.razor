@@ -17,7 +17,7 @@
                     @* &SuraName=@GetSuraName(aya.SuraId) *@
                     <div class="hstack">
                         <div class="vstack">
-                            <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="text-black">
+                            <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="text-black" title="Оятга ўтиш">
                                 <h3 class="card-title mb-0">@aya.SuraId. @db.GetSuraNameAsync(aya.SuraId).Result, @aya.AyaId оят</h3>
                                 <h4 class="card-body p-0 fs-6">@aya.Text.Substring(0, aya.Text.Length > 50 ? 50 : aya.Text.Length)</h4>
                             </a>

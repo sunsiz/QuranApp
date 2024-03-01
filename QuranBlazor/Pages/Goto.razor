@@ -12,13 +12,13 @@
             if (prompted.Contains(":") || prompted.Contains("/"))
             {
                 int suraId, ayaId;
-                if (prompted.IndexOf(":", StringComparison.Ordinal) > 0)
+                if (prompted.IndexOf(":", StringComparison.InvariantCultureIgnoreCase) > 0)
                 {
                     suraId = Convert.ToInt32(prompted.Split(":")[0]);
                     ayaId = Convert.ToInt32(prompted.Split(":")[1]);
                     NavigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
                 }
-                if (prompted.IndexOf("/", StringComparison.Ordinal) > 0)
+                if (prompted.IndexOf("/", StringComparison.InvariantCultureIgnoreCase) > 0)
                 {
                     suraId = Convert.ToInt32(prompted.Split("/")[0]);
                     ayaId = Convert.ToInt32(prompted.Split("/")[1]);

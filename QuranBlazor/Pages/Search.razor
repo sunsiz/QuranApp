@@ -6,7 +6,8 @@
     [Parameter]
     [SupplyParameterFromQuery]
     public string KeyWord { get; set; }
-    public IEnumerable<Aya> Ayas => db.GetSearchResultAsync(KeyWord).Result;
+
+    private IEnumerable<Aya> Ayas => db.GetSearchResultAsync(KeyWord).Result;
 }
 
 @* <div class="mx-4"><h3 class="px-5 py-3 shadow-lg w-100 bg-warning bg-gradient rounded-3">Search</h3></div> *@
@@ -23,7 +24,7 @@
 }
 else
 {
-    <div class="mx-1"><h3 class="p-3 shadow-lg w-100 bg-light bg-gradient rounded-pill">Излаш натижалари: "@KeyWord" @Ayas.Count() та жойда топилди. </h3></div>
+    <div class="mx-1"><h3 class="p-3 shadow-lg w-100 bg-light bg-gradient rounded-pill text-center">Излаш натижалари: "@KeyWord" @Ayas.Count() та жойда топилди. </h3></div>
 }
 
 @if (Ayas != null)
@@ -37,7 +38,7 @@ else
                         <div class="vstack">
                             <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
                                 <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.SuraId:@aya.AyaId</span>
-                                <a class="oi oi-share ms-auto me-3 text-white stretched-link" title="Оятга ўтиш" aria-hidden="true" href="AyaList?SuraId=@aya.SuraId#@aya.AyaId"></a>@* &SuraName=@db.GetSuraName(aya.SuraId) *@
+                                <a class="oi oi-share ms-auto me-3 text-white stretched-link" title="Оятга ўтиш" href="AyaList?SuraId=@aya.SuraId#@aya.AyaId"></a>@* &SuraName=@db.GetSuraName(aya.SuraId) *@
                             </h5>
                             <p class="arabic fs-3 fw-bold mb-0 me-2">@aya.Arabic</p>
                             <p class="my-2">@((MarkupString)aya.Text.Replace(KeyWord, "<span class='search-term'>" + KeyWord + "</span>"))</p><hr />

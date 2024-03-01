@@ -116,9 +116,15 @@
         NavigationManager.LocationChanged += OnLocationChanged;
     }
 
+    protected override void OnParametersSet()
+    {
+        Ayas = db.GetAyaListAsync(SuraId).Result;
+        base.OnParametersSet();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await ScrollToFragment();
+        if(firstRender)await ScrollToFragment();
     }
 
     public void Dispose()
@@ -160,13 +166,13 @@
 
     private void FilterAya()
     {
-        Ayas = Ayas.Where(a => a.Text.Contains(AyaFilter, StringComparison.OrdinalIgnoreCase) || (a.Comment != null && a.Comment.Contains(AyaFilter, StringComparison.OrdinalIgnoreCase)));
+        Ayas = Ayas.Where(a => a.Text.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase) || (a.Comment != null && a.Comment.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase)));
     }
 }
 
-<div class="text-white mb-3 form-floating">
-    <input class="form-control me-2 rounded-pill primary-color" id="floatingSearch" type="search" placeholder="Оят Излаш" @bind="AyaFilter" @bind:event="oninput" @bind:after="FilterAya" aria-label="Оят Излаш">
-    <label class="primary-color" for="floatingSearch">Оят Излаш</label>
+<div class="text-white mb-3">@*  form-floating *@
+    <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" type="search" placeholder="Оят Излаш" @bind="AyaFilter" @bind:event="oninput" @bind:after="FilterAya" aria-label="Оят Излаш">
+    @* <label class="primary-color" for="floatingSearch">Оят Излаш</label> *@
 </div>
 
 <div class="text-center vstack shadow-lg bg-light bg-gradient rounded-pill" id="surahead">

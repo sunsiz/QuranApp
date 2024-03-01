@@ -37,7 +37,7 @@
     <!--<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />-->
     <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#E5E5E5" BaseSize="512,554" />
     <!-- Splash Screen -->
-    <MauiSplashScreen Include="Resources\Splash\logo.svg" Color="#E5E5E5" BaseSize="512,554" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#E5E5E5" BaseSize="512,554" />
     <!-- Images -->
     <MauiImage Include="Resources\Images\*" />
     <!-- Custom Fonts -->
@@ -53,22 +53,11 @@
     <PackageReference Include="Microsoft.Maui.Controls" Version="8.0.7" />
     <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="8.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <UpToDateCheckInput Remove="Pages\Search.razor" />
+    <PackageReference Update="Microsoft.AspNetCore.Components.WebView.Maui" Version="8.0.7" />
   </ItemGroup>
   <ItemGroup>
     <_ContentIncludedByDefault Remove="Pages\Goto.razor" />
     <_ContentIncludedByDefault Remove="Pages\Search.razor" />
-  </ItemGroup>
-  <ItemGroup>
-    <UpToDateCheckInput Remove="Pages\Goto.razor" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="Resources\Splash\logo.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Update="Microsoft.AspNetCore.Components.WebView.Maui" Version="8.0.7" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Resources\Images\" />

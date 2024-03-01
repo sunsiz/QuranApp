@@ -14,6 +14,7 @@ namespace QuranBlazor.Data
         public int Id { get; set; }
         public int SuraId { get; set; }
         public int AyaId { get; set; }
+        [Collation("NOCASE")]
         public string Text { get; set; }
         public string Arabic { get; set; }
         public string Comment { get; set; }

@@ -115,14 +115,14 @@
             if (prompted.Contains(":") || prompted.Contains("/"))
             {
                 int suraId, ayaId;
-                if (prompted.IndexOf(":", StringComparison.Ordinal) > 0)
+                if (prompted.IndexOf(":", StringComparison.InvariantCultureIgnoreCase) > 0)
                 {
                     suraId = Convert.ToInt32(prompted.Split(":")[0]);
                     ayaId = Convert.ToInt32(prompted.Split(":")[1]);
                     NavigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
                     return;
                 }
-                if (prompted.IndexOf("/", StringComparison.Ordinal) > 0)
+                if (prompted.IndexOf("/", StringComparison.InvariantCultureIgnoreCase) > 0)
                 {
                     suraId = Convert.ToInt32(prompted.Split("/")[0]);
                     ayaId = Convert.ToInt32(prompted.Split("/")[1]);
@@ -168,14 +168,14 @@
         if (!string.IsNullOrEmpty(sureayetno) && (sureayetno.Contains(':') || sureayetno.Contains('/')))
         {
             int suraId, ayaId;
-            if (sureayetno.IndexOf(":", StringComparison.Ordinal) > 0)
+            if (sureayetno.IndexOf(":", StringComparison.InvariantCultureIgnoreCase) > 0)
             {
                 suraId = Convert.ToInt32(sureayetno.Split(":")[0]);
                 ayaId = Convert.ToInt32(sureayetno.Split(":")[1]);
                 NavigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
                 return;
             }
-            if (sureayetno.IndexOf("/", StringComparison.Ordinal) > 0)
+            if (sureayetno.IndexOf("/", StringComparison.InvariantCultureIgnoreCase) > 0)
             {
                 suraId = Convert.ToInt32(sureayetno.Split("/")[0]);
                 ayaId = Convert.ToInt32(sureayetno.Split("/")[1]);
