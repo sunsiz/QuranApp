@@ -1,45 +1,25 @@
 ﻿@page "/ayalist"
 @using QuranBlazor.Data
-@inject DBContext db
+@using System.Diagnostics.Tracing
+@inject DbContext db
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavigationManager
 @inject DialogService Dialog
 @implements IDisposable
-<script>
-    function BlazorScrollToId(id) {
-        console.log("Scrolling element id is " + id);
-        const element = document.getElementById(id);
-        if (element instanceof HTMLElement) {
-            element.scrollIntoView({
-                behavior: "auto",
-                block: "start",
-                inline: "center"
-            });
-        }
-    }
-    // When the user clicks the button, the page scrolls to the top
-    function BlazorScrollToTop() {
-        window.scrollTo(0, 0);// let maincontent = document.getElementById('surahead'); //document.getElementsByClassName('maincontent')[0].scrollTop = 0;//window.scrollTo(0,0);// document.documentElement.scroll(0, 0);
-        // if (maincontent != null) {
-        //     console.log(maincontent.scrollTop + " is the maincontent scrollTop");
-        //     maincontent.scrollTop = 0;
-        // }
-    }
-</script>
+
 @code {
     // Handles URL patterns like /search?filter=some+stuff&page=3&assignee=Monica&assignee=Chandler
-
     [Parameter]
     [SupplyParameterFromQuery]
     public int SuraId { get; set; }
-    // [Parameter]
-    // [SupplyParameterFromQuery]
-    public string SuraName => db.GetSuraNameAsync(SuraId).Result;
+
+    public string SuraName { get; set; }
     private string arabicStyle => "font-size:" + Preferences.Get("ArabicFontSize", 16) + "px";
     private string textStyle => "font-size:" + Preferences.Get("TranslateFontSize", 14) + "px";
     private string commentStyle => "font-size:" + Preferences.Get("CommentFontSize", 12) + "px";
     private string bookmarkAya = Preferences.Get("Bookmark", "");
-
+    private bool isDataLoaded;
+    private bool backToTopCalled = false;
     public IEnumerable<Aya> Ayas { get; set; }
 
     private async void ShareAya(Aya aya)
@@ -54,11 +34,11 @@
     private async void Favorite(Aya aya)
     {
         aya.IsFavorite = !aya.IsFavorite;
-        await db.UpdateAya(aya);
+        await db.UpdateAyaAsync(aya);
         Dialog.DisplayToast("Оят белгиланди");
     }
 
-    private async void Bookmark(Aya aya)
+    private void Bookmark(Aya aya)
     {
         Preferences.Set("Bookmark", aya.SuraId + ":" + aya.AyaId);
         Dialog.DisplayToast("Сўнги ўқиган оятингиз деб белгиланди");
@@ -68,63 +48,54 @@
     {
         if (aya.HasNote)
         {
-            // await JsRuntime.InvokeVoidAsync("alert", "Warning!"); // Alert
-            // bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure?"); // Confirm
-            // string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Take some input:"); // Prompt
             var confirmed = await Dialog.DisplayAlert("Огоҳлантириш", "Бу оят учун аллақачон эслатма қўшилган, агар давом этсангиз эски эслатма ўчирилади, уни ўчириб ташламоқчимисиз?", "Ҳа, эскисини ўчириб ташланг", "Йўқ").ConfigureAwait(false);
-            if (confirmed)
-            {
-                // var note = await DialogService.DisplayPrompt("Not ekle", "Ayet için not ekleyin", "Ekle", "Kapat").ConfigureAwait(false);
-                // if (!string.IsNullOrEmpty(note))
-                // {
-                    aya.HasNote = false;
-                    await db.UpdateAya(aya).ConfigureAwait(false);
-                var result=db.DeleteNote(aya.AyaId, aya.SuraId);
-                if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Оят қайди ўчирилди"));
-                // Note(aya);
-                    // var result = db.UpdateNote(aya.AyaId, aya.SuraId).Result;
-                //     if (result > 0) await DialogService.DisplayToast("Ayet notu güncellendi.").ConfigureAwait(false);
-                // }
-            }
-            // var note = db.GetNote(aya.AyaId, aya.SuraId);
-            // if (note != null) db.DeleteNote(note);
-            // db.DeleteNote(aya.AyaId, aya.SuraId);
+            if (!confirmed) return;
+            aya.HasNote = false;
+            await db.UpdateAyaAsync(aya).ConfigureAwait(false);
+            var result = await db.DeleteNoteAsync(aya.AyaId, aya.SuraId);
+            if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Оят қайди ўчирилди"));
         }
         else
         {
             var note = await Dialog.DisplayPrompt("Эслатма қўшинг", "Оятга эслатма қўшинг", "Қўшиш", "Ёпиш").ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(note))
-            {
-                // string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Take some input:"); // Prompt
-                var result=db.AddNote(aya.AyaId, aya.SuraId, SuraName, note);
-                aya.HasNote = true;
-                await db.UpdateAya(aya).ConfigureAwait(false);
-                if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Оят эслатмаси қўшилди"));
-            }
+            if (string.IsNullOrEmpty(note)) return;
+            var result = await db.AddNote(aya.AyaId, aya.SuraId, SuraName, note);
+            aya.HasNote = true;
+            await db.UpdateAyaAsync(aya).ConfigureAwait(false);
+            if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Оят эслатмаси қўшилди"));
         }
 
     }
+    
 
-    // private bool IsBookmark(Aya aya)
-    // {
-    //     return Preferences.Get("Bookmark", "") == aya.SuraId + ":" + aya.AyaId;
-    // }
-
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        Ayas = db.GetAyaListAsync(SuraId).Result;
+        Ayas = await db.GetAyaListAsync(SuraId).ConfigureAwait(false);
+        SuraName = await db.GetSuraNameAsync(SuraId).ConfigureAwait(false);
         NavigationManager.LocationChanged += OnLocationChanged;
+        isDataLoaded = true;
+        await InvokeAsync(StateHasChanged);
     }
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        Ayas = db.GetAyaListAsync(SuraId).Result;
-        base.OnParametersSet();
+        Ayas = await db.GetAyaListAsync(SuraId).ConfigureAwait(false);
+        await base.OnParametersSetAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if(firstRender)await ScrollToFragment();
+        if (!backToTopCalled)
+        {
+            if (firstRender)
+            {
+                await ScrollToFragment();
+            }
+            else if (isDataLoaded)
+            {
+                await ScrollToFragment();
+            }
+        }
     }
 
     public void Dispose()
@@ -134,7 +105,11 @@
 
     private async void OnLocationChanged(object sender, LocationChangedEventArgs e)
     {
-        await ScrollToFragment();
+        if (!backToTopCalled)
+        {
+            await ScrollToFragment();
+        }
+        backToTopCalled = false; // Reset the flag after each render
     }
 
     private async Task ScrollToFragment()
@@ -146,12 +121,7 @@
             // Handle text fragment (https://example.org/#test:~:text=foo)
             // https://github.com/WICG/scroll-to-text-fragment/
             var elementId = fragment.Substring(1);
-            // var index = elementId.IndexOf(":~:", StringComparison.Ordinal);
-            // if (index > 0)
-            // {
-            //     elementId = elementId.Substring(0, index);
-            // }
-
+            
             if (!string.IsNullOrEmpty(elementId))
             {
                 await JsRuntime.InvokeVoidAsync("BlazorScrollToId", elementId);
@@ -160,7 +130,8 @@
     }
     private async Task BackToTop()
     {
-        await JsRuntime.InvokeVoidAsync("BlazorScrollToTop");// await JsRuntime.InvokeVoidAsync("BlazorScrollToId", "maincontent");
+        backToTopCalled = true; // Set the flag when BackToTop is called
+        await JsRuntime.InvokeVoidAsync("BlazorScrollToTop");
     }
     string AyaFilter;
 
@@ -179,6 +150,8 @@
     <h3 class="pt-3 pb-0 text-black">@SuraId. @SuraName сураси</h3>
     @if (SuraId is not (1 or 9)){<span class="text-center arabic mx-auto fs-2 pb-2 pt-0">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>}
 </div>
+@if (Ayas != null)
+{
 @foreach (Aya aya in Ayas)
 {
     <div class="row my-3" id="@aya.AyaId">
@@ -189,23 +162,38 @@
                         <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
                             <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.AyaId</span>
                             @* <span class="oi oi-share ms-auto" title="Share" aria-hidden="true" @onclick="()=>ShareAya(aya)"><img src="target.svg" width="28px" height="28px" alt="paylaş" /></span> *@
-                            @* oi oi-heart *@<span class=' @(aya.IsFavorite?"text-warning":"text-white")' title="Оятни белгилаш" aria-hidden="true" @onclick="()=>Favorite(aya)"><img src="pin.png" width="28px" height="28px" alt="Оятни белгилаш" /></span>
-                            @* oi oi-clipboard *@<span class=' @(aya.HasNote?"text-warning":"text-white")' title="Эслатма қўшинг" aria-hidden="true" @onclick="()=>Note(aya)"><img src="note.png" width="28px" height="28px" alt="Эслатма қўшинг" /></span>
-                            @* oi oi-bookmark *@<span class=' me-3 @(SuraId+":"+aya.Id==bookmarkAya)?"text-warning":"text-white")' title="Сўнг ўқилган оят деб белгилаш" aria-hidden="true" @onclick="()=>Bookmark(aya)"><img src="bookmark.png" width="28px" height="28px" alt="Сўнг ўқилган оят деб белгилаш" /></span>
+                            @* oi oi-heart *@<span class=' @(aya.IsFavorite ? "text-warning" : "text-white")' title="Оятни белгилаш" aria-hidden="true" @onclick="() => Favorite(aya)"><img src="pin.png" width="28px" height="28px" alt="Оятни белгилаш"/></span>
+                            @* oi oi-clipboard *@<span class=' @(aya.HasNote ? "text-warning" : "text-white")' title="Эслатма қўшинг" aria-hidden="true" @onclick="() => Note(aya)"><img src="note.png" width="28px" height="28px" alt="Эслатма қўшинг"/></span>
+                            @* oi oi-bookmark *@<span class=' me-3 @(SuraId + ":" + aya.Id == bookmarkAya)?"text-warning":"text-white")' title="Сўнг ўқилган оят деб белгилаш" aria-hidden="true" @onclick="() => Bookmark(aya)"><img src="bookmark.png" width="28px" height="28px" alt="Сўнг ўқилган оят деб белгилаш"/></span>
                         </h5>
                         <p class="arabic mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
-                        <p class="my-2" style=@textStyle>@aya.Text</p>
-                        @if (aya.Comment != null)
+                        @if (string.IsNullOrEmpty(AyaFilter))
                         {
-                            <hr />
-                            <p style=@commentStyle>
-                                @((MarkupString)aya.Comment)
+                            <p class="my-2" style=@textStyle>@aya.Text</p>
+                            if (aya.Comment != null)
+                            {
+                                <hr/>
+                                <p style=@commentStyle>@((MarkupString)aya.Comment)</p>
+                            }
+                        }
+                        else
+                        {
+                            <p class="my-2" style=@textStyle>
+                                @((MarkupString)aya.Text.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
                             </p>
+                            @if (aya.Comment != null)
+                            {
+                                <hr/>
+                                <p style=@commentStyle>
+                                    @((MarkupString)aya.Comment.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase)))
+                                </p>
+                            }
                         }
                     </div>
                 </div>
             </div>
         </div>
     </div>
+}
 }
 <div id="BackToTop" class="Shown" @onclick="BackToTop"></div>

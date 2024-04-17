@@ -10,14 +10,16 @@ namespace QuranBlazor.Data
 {
     public class Aya
     {
-        [PrimaryKey]
+        [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
         public int SuraId { get; set; }
         public int AyaId { get; set; }
         [Collation("NOCASE")]
         public string Text { get; set; }
         public string Arabic { get; set; }
+        [Collation("NOCASE")]
         public string Comment { get; set; }
+        [Collation("NOCASE")]
         public string DetailComment { get; set; }
         public bool IsFavorite { get; set; }
         public bool HasNote { get; set; }

@@ -1,13 +1,15 @@
 ﻿@page "/notes"
 @using QuranBlazor.Data
 @using System.Diagnostics
-@inject DBContext db
+@inject DbContext db
 @inject DialogService Dialog
+@inject IJSRuntime JsRuntime
 
 <div class="text-white text-center mb-3">
     <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white">Қайдлар</h3>
 </div>
-
+@if (notes != null)
+{
 @foreach (Note note in notes)
 {
     <div class="row my-2">
@@ -22,27 +24,28 @@
                                 <h4 class="tab-content fs-6">@note.Content</h4>
                             </a>
                         </div>
-                        <span class="oi oi-trash p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="()=>DeleteNote(note)"></span>
+                        <span class="oi oi-trash p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="() => DeleteNote(note)"></span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 }
+}
 
 @code {
-    public List<Note> notes => db.GetNotes().Result;
-
-    // private string GetSuraName(int suraId)
-    // {
-    //     return db.GetSuraName(suraId);
-    // }
+    public List<Note> notes { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        notes = await db.GetNotesAsync().ConfigureAwait(false);
+    }
+    
     private async Task DeleteNote(Note note)
     {
         var result = await DisplayConfirm("Ҳақиқатан ҳам ўчирмоқчимисиз?", "Сиз белгилаган қайд ўчирилади. Ишончингиз комилми?", "Ҳа", "Йўқ").ConfigureAwait(false);
         if (result)
         {
-            var deleted = db.DeleteNote(note.AyaId, note.SuraId);
+            var deleted = await db.DeleteNoteAsync(note.AyaId, note.SuraId);
             var removed = notes.Remove(notes.Find(a => a.AyaId == note.AyaId && a.SuraId == note.SuraId));
             Debug.WriteLine("Delete note result is " + removed); 
             if (deleted > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Қайдлардан олиб ташланди"));

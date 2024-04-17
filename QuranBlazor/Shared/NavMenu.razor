@@ -43,7 +43,6 @@
         </div>
         <div class="nav-item px-3">
             <NavLink type="button" class="nav-link" Match="NavLinkMatch.All" @onclick="() => DisplayPrompt()">
-                @*  @onclick="()=>ShowModal()" data-bs-toggle="modal" data-bs-target="#staticBackdrop" @onclick="() => ModalDialog.Open()" href="" @onclick="() => GotoPopUp()" *@
                 <span class="oi oi-share" aria-hidden="true"></span> Оятга ўтиш
             </NavLink>
         </div>
@@ -52,53 +51,11 @@
                 <span class="oi oi-cog" aria-hidden="true"></span> Созламалар
             </NavLink>
         </div>
-        @* <div class="nav-item px-3">
-        <NavLink class="nav-link" href="counter">
-        <span class="oi oi-plus" aria-hidden="true"></span> Counter
-        </NavLink>
-        </div>
-        <div class="nav-item px-3">
-        <NavLink class="nav-link" href="fetchdata">
-        <span class="oi oi-list-rich" aria-hidden="true"></span> Fetch data
-        </NavLink>
-        </div> *@
     </nav>
-    <!-- Modal -->
-    @* <ModalDialog @ref="@ModalDialog">
-    <Title>Ayete Git</Title>
-    <Body>
-    <label class="form-label text-black">Sure ve ayet numarasini girin (örnek: 16:90 yada 16/90):</label>
-    <input id="sureayetno" name="sureayetno" @bind="@sureayetno" class="form-control"/>
-    </Body>
-    <Footer>
-    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="() => ModalDialog.Close()">Kapat</button>
-    <button type="button" class="btn btn-primary" @onclick="() => GotoAya()">Git</button>
-    </Footer>
-    </ModalDialog> *@
-    @* <div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-    <div class="modal-header">
-    <h1 class="modal-title fs-5" id="staticBackdropLabel">Ayete Git</h1>
-    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-    </div>
-    <div class="modal-body">
-    <label class="form-label">Sure ve ayet numarasini girin (örnek: 16:90 yada 16/90):</label>
-    <input id="sureayetno" name="sureayetno" @bind="@sureayetno" class="form-control"/>
-    </div>
-    <div class="modal-footer">
-    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
-    <button type="button" class="btn btn-primary" @onclick="() => GotoAya()">Git</button>
-    </div>
-    </div>
-    </div>
-    </div> *@
 </div>
 
 @code {
     private bool collapseNavMenu = true;
-    // private string sureayetno = "";
-    // private ModalDialog ModalDialog { get; set; }
 
     private string NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
@@ -133,35 +90,7 @@
         }
         await JsRuntime.InvokeVoidAsync("alert", "Please check your input, it should be look like 16:90 or 16/90"); // Alert
     }
-
-    // private async Task GotoAya()
-    // {
-    //     if(!string.IsNullOrEmpty(sureayetno)){
-    //         if (sureayetno.Contains(':') || sureayetno.Contains('/'))
-    //         {
-    //             int suraId, ayaId;
-    //             if (sureayetno.IndexOf(":", StringComparison.Ordinal) > 0)
-    //             {
-    //                 suraId = Convert.ToInt32(sureayetno.Split(":")[0]);
-    //                 ayaId = Convert.ToInt32(sureayetno.Split(":")[1]);
-    //                 NavigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
-    //                 return;
-    //             }
-    //             if (sureayetno.IndexOf("/", StringComparison.Ordinal) > 0)
-    //             {
-    //                 suraId = Convert.ToInt32(sureayetno.Split("/")[0]);
-    //                 ayaId = Convert.ToInt32(sureayetno.Split("/")[1]);
-    //                 NavigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
-    //                 return;
-    //             }
-    //         }
-    //     }
-    // }
-
-    // private async Task ShowModal()
-    // {
-    //     await JsRuntime.InvokeVoidAsync("modal.show");
-    // }
+    
     private async Task DisplayPrompt()
     {
         var sureayetno = await DialogService.DisplayPrompt("Оятга ўтиш", "Сура ва оят рақамини киритинг (масалан: 16:90 ёки 16/90)", "Кириш", "Қайтиш");

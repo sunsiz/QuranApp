@@ -1,11 +1,10 @@
 ﻿@using QuranBlazor.Data
 @inherits LayoutComponentBase
 @inject NavigationManager navigationManager
-@inject DBContext db
+@inject DbContext db
 
 @code {
-    // public ModalDialog ModalDialog { get; set; }
-    // private string sureayetno = "";
+    
     private bool BookmarkExist()
     {
         return Preferences.Get("BookMark", "") != "";
@@ -16,34 +15,10 @@
             var destination = Preferences.Get("BookMark", "");
             var suraId = destination.Split(":")[0];
         var ayaId = destination.Split(":")[1];
-        var url = "AyaList?SuraId=" + suraId + "#" + ayaId;/* + "&SuraName="  @db.GetSuraName(Convert.ToInt32(suraId)) + */
+        var url = "AyaList?SuraId=" + suraId + "#" + ayaId;
         navigationManager.NavigateTo(url);
     }
-
-    // private async Task GotoAya()
-    // {
-    //     if (!string.IsNullOrEmpty(sureayetno))
-    //     {
-    //         if (sureayetno.Contains(':') || sureayetno.Contains('/'))
-    //         {
-    //             int suraId, ayaId;
-    //             if (sureayetno.IndexOf(":", StringComparison.Ordinal) > 0)
-    //             {
-    //                 suraId = Convert.ToInt32(sureayetno.Split(":")[0]);
-    //                 ayaId = Convert.ToInt32(sureayetno.Split(":")[1]);
-    //                 navigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
-    //                 return;
-    //             }
-    //             if (sureayetno.IndexOf("/", StringComparison.Ordinal) > 0)
-    //             {
-    //                 suraId = Convert.ToInt32(sureayetno.Split("/")[0]);
-    //                 ayaId = Convert.ToInt32(sureayetno.Split("/")[1]);
-    //                 navigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
-    //                 return;
-    //             }
-    //         }
-    //     }
-    // }
+    
 }
 
 <div class="page">
@@ -52,24 +27,12 @@
     </div>
 
     <main>
-        <div class="top-row px-4">
+        @* <div class="top-row px-4">
             <a onclick="history.back();" class="ms-2 me-auto oi oi-action-undo fs-3"></a><span class='oi oi-bookmark me-3 fs-3 @(BookmarkExist()?"nav-pills":"d-none")' title="Bookmark" aria-hidden="true" @onclick="()=>GotoBookmark()"></span>
-        </div>
+        </div> *@
 
         <article class="content px-2" id="maincontent">
             @Body
         </article>
     </main>
 </div>
-
-@* <ModalDialog @ref="@ModalDialog">
-    <Title>Ayete Git</Title>
-    <Body>
-    <label class="form-label">Sure ve ayet numarasini girin (örnek: 16:90 yada 16/90):</label>
-    <input id="sureayetno" name="sureayetno" @bind="@sureayetno" class="form-control" />
-    </Body>
-    <Footer>
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="() => ModalDialog.Close()">Kapat</button>
-        <button type="button" class="btn btn-primary" @onclick="() => GotoAya()">Git</button>
-    </Footer>
-</ModalDialog> *@

@@ -25,7 +25,7 @@ namespace QuranBlazor
             builder.Services.AddSingleton<WeatherForecastService>();
             builder.Services.AddSingleton<DialogService>();
             // Register DBContext and the SQLite database
-            builder.Services.AddScoped<DBContext>(s => ActivatorUtilities.CreateInstance<DBContext>(s, dbPath));
+            builder.Services.AddScoped<DbContext>(s => ActivatorUtilities.CreateInstance<DbContext>(s, dbPath));
             return builder.Build();
         }
     }

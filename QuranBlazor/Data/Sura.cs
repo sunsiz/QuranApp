@@ -10,7 +10,7 @@ namespace QuranBlazor.Data
 {
     public class Sura
     {
-        [PrimaryKey]
+        [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
         public string Name { get; set; }
         public string ArabicName { get; set;}

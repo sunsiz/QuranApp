@@ -1,13 +1,14 @@
 ﻿@page "/search"
 @using QuranBlazor.Data
-@inject DBContext db
+@using System.Text.RegularExpressions
+@inject DbContext db
 
 @code {
     [Parameter]
     [SupplyParameterFromQuery]
     public string KeyWord { get; set; }
 
-    private IEnumerable<Aya> Ayas => db.GetSearchResultAsync(KeyWord).Result;
+    private IEnumerable<Aya> Ayas => db.GetSearchResult(KeyWord);
 }
 
 @* <div class="mx-4"><h3 class="px-5 py-3 shadow-lg w-100 bg-warning bg-gradient rounded-3">Search</h3></div> *@
@@ -41,11 +42,11 @@ else
                                 <a class="oi oi-share ms-auto me-3 text-white stretched-link" title="Оятга ўтиш" href="AyaList?SuraId=@aya.SuraId#@aya.AyaId"></a>@* &SuraName=@db.GetSuraName(aya.SuraId) *@
                             </h5>
                             <p class="arabic fs-3 fw-bold mb-0 me-2">@aya.Arabic</p>
-                            <p class="my-2">@((MarkupString)aya.Text.Replace(KeyWord, "<span class='search-term'>" + KeyWord + "</span>"))</p><hr />
+                            <p class="my-2">@((MarkupString)Regex.Replace(aya.Text, KeyWord, m => $"<span class='search-term'>{m.Value}</span>", RegexOptions.IgnoreCase))</p><hr />
                             <p>
                                 @if (aya.Comment != null)
                                 {
-                                    @((MarkupString)aya.Comment.Replace(KeyWord, "<span class='search-term'>" + KeyWord + "</span>"))
+                                    @((MarkupString)Regex.Replace(aya.Comment, KeyWord,  m=> $"<span class='search-term'>{m.Value}</span>", RegexOptions.IgnoreCase))
                                 }
                             </p>
                         </div>

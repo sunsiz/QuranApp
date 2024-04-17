@@ -1,12 +1,12 @@
 ﻿@page "/suras"
 @using QuranBlazor.Data
-@inject DBContext db
+@inject DbContext db
 
 @code {
     public IEnumerable<Sura> SuraList { get; set; }
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        SuraList = db.GetSuraListAsync().Result;
+        SuraList = await db.GetSuraListAsync().ConfigureAwait(false);
         base.OnInitialized();
     }
 
@@ -23,7 +23,8 @@
     <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" type="search" placeholder="Сура Излаш" @bind="SuraFilter" @bind:event="oninput" @bind:after="FilterSura" aria-label="Сура Излаш">
     @* <label class="primary-color" for="floatingSearch">Сура Излаш</label> *@
 </div>
-
+@if (SuraList != null)
+{
 @foreach (Sura sura in SuraList)
 {
     <div class="row my-2">
@@ -35,7 +36,7 @@
                             <div class="vstack">
                                 <h5 class="card-title mb-0">@sura.Id. @sura.Name</h5>
                                 @{ var revealed = sura.RevealedIn ? "Макка" : "Мадина"; }
-                                <p class="card-text"><span class="my-0">@sura.Meaning</span> - @revealed (@sura.AyaCount)</p>
+                                <p class="card-text">@* <span class="my-0">@sura.Meaning</span> -  *@@revealed (@sura.AyaCount)</p>
                             </div>
                             <h2 class="arabic">@sura.ArabicName</h2>
                         </div>
@@ -45,5 +46,5 @@
         </div>
     </div>
 }
-
+}
 @* <SurveyPrompt Title="How is Blazor working for you?" /> *@

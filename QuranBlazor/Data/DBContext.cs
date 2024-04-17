@@ -1,85 +1,72 @@
 ﻿using SQLite;
 using System.Diagnostics;
-using System.Globalization;
+using Microsoft.Data.Sqlite;
 
 namespace QuranBlazor.Data
 {
-    public class DBContext
+    public class DbContext
     {
         private readonly string _dbPath;
-        SQLiteConnection conn;
-        public DBContext(string dbPath)
+        private SQLiteAsyncConnection _conn;
+        public DbContext(string dbPath)
         {
             _dbPath = dbPath;
+            InitializeAsync().Wait();
         }
 
-
-/* Unmerged change from project 'QuranBlazor (net7.0-maccatalyst)'
-Before:
-        private void Initialize()
-After:
-        private void Task InitializeAsync()
-*/
         private async Task InitializeAsync()
         {
             // Don't Create database if it exists
-            if (conn != null)
+            if (_conn != null)
                 return;
 
+            // Create database and Tables
+            if (!File.Exists(_dbPath)) await CopyFileToAppDataDirectory();
+            _conn = new SQLiteAsyncConnection(_dbPath,
+                SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
+
+#if DEBUG
+            _conn.Tracer = new Action<string>(q => Debug.WriteLine(q));
+            _conn.Trace = true;
+#endif
+        }
+        private async Task CopyFileToAppDataDirectory()
+        {
+            var filename = @"quran.db";
+            var targetPath = Path.Combine(FileSystem.Current.AppDataDirectory, filename);
+            if (File.Exists(targetPath))
+            {
+                Debug.WriteLine($"Target file already exists: {targetPath}");
+                return;
+            }
             try
             {
-                if (conn == null)
-                {
-                    // Create database and Tables
-                    if (!File.Exists(_dbPath)) await CopyFileToAppDataDirectory();//CopyDB(_dbPath);
-                    conn = new SQLiteConnection(_dbPath,
-                        SQLite.SQLiteOpenFlags.ReadWrite | SQLite.SQLiteOpenFlags.Create | SQLite.SQLiteOpenFlags.SharedCache)
-                    {
-                        Tracer = new Action<string>(q => Debug.WriteLine(q)),
-                        Trace = true
-                    };
-                    Debug.WriteLine("The database path: " + conn.DatabasePath);
-                    Debug.WriteLine("The table counts before: " + conn.TableMappings.Count());
-                    conn.CreateTable<Sura>();
-                    conn.CreateTable<Aya>();
-                    conn.CreateTable<Note>();
-                    Debug.WriteLine("The table counts after: " + conn.TableMappings.Count());
-                    Debug.WriteLine(conn.DatabasePath);
-                    //conn.Backup(conn.DatabasePath);
-                }
+                using var sourceStream = await Microsoft.Maui.Storage.FileSystem.Current.OpenAppPackageFileAsync(filename);
+                using var targetStream = new FileStream(targetPath, FileMode.CreateNew, FileAccess.Write);
+                sourceStream.CopyTo(targetStream);
+                Debug.WriteLine("File copied successfully");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex.Message);
+                Debug.WriteLine($"An error occurred: {ex.Message}");
             }
         }
 
-        //private async void CopyDB(string databasePath)
+
+        //private async Task CopyFileToAppDataDirectory()
         //{
         //    try
         //    {
-        //        using FileStream outputStream = File.OpenWrite(databasePath);
-        //        using Stream fs = await Microsoft.Maui.Storage.FileSystem.Current.OpenAppPackageFileAsync("Quran.db");
-        //        using BinaryWriter writer = new BinaryWriter(outputStream);
-        //        using (BinaryReader reader = new BinaryReader(fs))
-        //        {
-        //            var bytesRead = 0;
+        //        var filename = @"quran.db";
+        //        // Open the source file
+        //        //using var inputStream = await Microsoft.Maui.Storage.FileSystem.Current.OpenAppPackageFileAsync(filename);
+        //        await using var inputStream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, filename));
+        //        // Create an output filename
+        //        var targetFile = Path.Combine(FileSystem.Current.AppDataDirectory, filename);
 
-        //            int bufferSize = 1024;
-        //            var buffer = new byte[bufferSize];
-        //            using (fs)
-        //            {
-        //                do
-        //                {
-        //                    buffer = reader.ReadBytes(bufferSize);
-        //                    bytesRead = buffer.Count();
-        //                    writer.Write(buffer);
-        //                }
-
-        //                while (bytesRead > 0);
-
-        //            }
-        //        }
+        //        // Copy the file to the AppDataDirectory
+        //        using var outputStream = File.Create(targetFile);
+        //        await inputStream.CopyToAsync(outputStream);
         //    }
         //    catch (Exception exception)
         //    {
@@ -87,82 +74,51 @@ After:
         //    }
         //}
 
-        public async Task CopyFileToAppDataDirectory()
+        public Task<List<Sura>> GetSuraListAsync()
         {
-            string filename = @"quran.db";
-            // Open the source file
-            using Stream inputStream = Microsoft.Maui.Storage.FileSystem.Current.OpenAppPackageFileAsync(filename).Result;
-
-            // Create an output filename
-            string targetFile = Path.Combine(Microsoft.Maui.Storage.FileSystem.Current.AppDataDirectory, filename);
-
-            // Copy the file to the AppDataDirectory
-            using FileStream outputStream = File.Create(targetFile);
-            inputStream.CopyToAsync(outputStream).Wait(TimeSpan.FromSeconds(30));
+            return _conn.Table<Sura>().ToListAsync();
         }
 
-        public async Task<IEnumerable<Sura>> GetSuraListAsync()
+        public Task<List<Aya>> GetAyaListAsync(int suraId)
         {
-            await InitializeAsync();
-            return conn.Table<Sura>().ToList();
+            return _conn.Table<Aya>().Where(a => a.SuraId == suraId).ToListAsync();
         }
 
-        public async Task<IEnumerable<Aya>> GetAyaListAsync(int suraId)
+        public Task<int> UpdateAyaAsync(Aya aya)
         {
-            await InitializeAsync();
-            //var tableMapping = conn.Table<Aya>().Table;
-            //Debug.WriteLine("Aya table PK is:" + tableMapping.PK);
-            return conn.Table<Aya>().Where(a => a.SuraId == suraId).ToList();
-        }
-
-        public async Task UpdateAya(Aya aya)
-        {
-            await InitializeAsync();
-            var result = conn.Update(aya);
+            var result = _conn.UpdateAsync(aya);
             Debug.WriteLine(result);
-        }
-
-        public Note GetNote(int ayaId, int suraId)
-        {
-            return conn.Table<Note>().FirstOrDefault(n => n.AyaId == ayaId && n.SuraId == suraId);
-        }
-
-        public int AddNote(int ayaId, int suraId, string suraName, string note)
-        {
-            int result=0;
-            try
-            {
-                var newNote = new Note()
-                {
-                    AyaId = ayaId,
-                    Content = note,
-                    SuraId = suraId,
-                    Title = suraId + ". Сура " + suraName + ", " + ayaId + ". Оят"
-                };
-                result = conn.Insert(newNote);
-                Debug.WriteLine("Add note result is:" + result);
-            }
-            catch (Exception exception)
-            {
-                Debug.WriteLine(exception.Message);
-            }
             return result;
         }
 
-        public int DeleteNote(int ayaId, int suraId)
+        public Task<Note> GetNoteAsync(int ayaId, int suraId)
         {
-            //Debug.WriteLine("Delete note result is:" +
-            //                conn.Table<Note>().Delete(n => n.AyaId == ayaId && n.SuraId == suraId));
-            var note = conn.Table<Note>().FirstOrDefault(n => n.SuraId == suraId && n.AyaId == ayaId);
-            if (note != null)
-            {
-                var noteResult = conn.Delete(note);
-                Debug.WriteLine("Delete note result is:" + noteResult);
-            }
+            return _conn.Table<Note>().FirstOrDefaultAsync(n => n.AyaId == ayaId && n.SuraId == suraId);
+        }
 
-            var aya = conn.Table<Aya>().FirstOrDefault(a => a.SuraId == suraId && a.AyaId == ayaId);
+        public Task<int> AddNote(int ayaId, int suraId, string suraName, string note)
+        {
+            var newNote = new Note()
+            {
+                AyaId = ayaId,
+                Content = note,
+                SuraId = suraId,
+                Title = $"{suraId}. Сура {suraName}, {ayaId}. Оят"
+            };
+            var result = _conn.InsertAsync(newNote);
+            Debug.WriteLine("Add note result is:" + result);
+
+            return result;
+        }
+
+        public async Task<int> DeleteNoteAsync(int ayaId, int suraId)
+        {
+            var noteResult = await _conn.Table<Note>().DeleteAsync(n => n.SuraId == suraId && n.AyaId == ayaId);
+            Debug.WriteLine("Delete note result is:" + noteResult);
+
+            var aya = await _conn.Table<Aya>().FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaId);
             aya.HasNote = false;
-            var result = conn.Update(aya);
+            var result = await _conn.UpdateAsync(aya);
             Debug.WriteLine("Delete has note from aya result is:" + result);
             return result;
         }
@@ -170,59 +126,89 @@ After:
         public async Task<int> UpdateNote(int ayaId, int suraId)
         {
             int result = -1;
-            var note = conn.Table<Note>().FirstOrDefault(n => n.SuraId == suraId && n.AyaId == ayaId);
+            var note = await _conn.Table<Note>().FirstOrDefaultAsync(n => n.SuraId == suraId && n.AyaId == ayaId);
             if (note != null)
             {
-                await InitializeAsync();
-                result = conn.Update(note);
+                result = await _conn.UpdateAsync(note);
                 Debug.WriteLine(result);
             }
             return result;
         }
 
-        public async Task<List<Aya>> GetFavorites()
+        public async Task<List<FavoritesViewModel>> GetFavoritesAsync()
         {
-            await InitializeAsync();
-            return conn.Table<Aya>().Where(a => a.IsFavorite == true).ToList();
+            var favoriteAyas = await _conn.Table<Aya>().Where(a => a.IsFavorite).ToListAsync();
+            var suras = await _conn.Table<Sura>().ToListAsync();
+
+            var favorites = favoriteAyas.Select(a => new FavoritesViewModel
+            {
+                SuraId = a.SuraId,
+                AyaId = a.AyaId,
+                Text = a.Text,
+                SuraName = suras.FirstOrDefault(s => s.Id == a.SuraId)?.Name
+            }).ToList();
+
+            return favorites;
         }
 
-        public int DeleteFavorite(int ayaId, int suraId)
+        public async Task<int> DeleteFavoriteAsync(int ayaId, int suraId)
         {
-            var aya = conn.Table<Aya>().FirstOrDefault(a => a.SuraId == suraId && a.AyaId == ayaId);
+            var aya = await _conn.Table<Aya>().FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaId);
             aya.IsFavorite = false;
-            var result = conn.Update(aya);
+            var result = await _conn.UpdateAsync(aya);
             Debug.WriteLine("Delete favorite aya result is:" + result);
             return result;
         }
 
         public async Task<string> GetSuraNameAsync(int suraId)
         {
-            if (suraId == 0) return "";
-            await InitializeAsync();
-            return conn.Table<Sura>().FirstOrDefault(s => s.Id == suraId).Name;
+            var sura = await _conn.Table<Sura>().FirstOrDefaultAsync(s => s.Id == suraId);
+            return sura?.Name ?? string.Empty;
         }
 
-        public async Task<List<Note>> GetNotes()
+        public Task<List<Note>> GetNotesAsync()
         {
-            await InitializeAsync();
-            return conn.Table<Note>().ToList();
+            return _conn.Table<Note>().ToListAsync();
         }
 
-        public async Task<IEnumerable<Aya>> GetSearchResultAsync(string keyWord)
+        /// <summary>
+        /// This method is used to search for Ayas (verses of the Quran) that contain a specific keyword in their text or comment.
+        /// Because SQLite does not support the Unicode character comparison well (can't perform case insensitive comparison on Cyrillic characters), we have to create a custom function to compare the text and the keyword.
+        /// </summary>
+        /// <param name="keyWord">The keyword is passed as a parameter to the method.</param>
+        /// <returns>The list of Ayas that matches th condition</returns>
+        public IEnumerable<Aya> GetSearchResult(string keyWord)
         {
-            await InitializeAsync();
             if (string.IsNullOrEmpty(keyWord)) return null;
-            var keyWordL = keyWord.ToLower(new CultureInfo("uz-Cyrl"));
-            //return conn.Query<Aya>("SELECT * FROM Aya WHERE Text LIKE '%"+keyWord+"%';");
-            //return conn.Table<Aya>().Where(a => a.Text.Contains(keyWord)).ToList();
-            //return from aya in conn.Table<Aya>() where aya.Text.Contains(keyWord) || aya.Text.Contains(keyWordL) select aya;
-            //return conn.Table<Aya>().Where(a => EF.Functions.Like(a.Text, $"%{keyWord}%")).ToList();
-            //return conn.Table<Aya>().Where(a => a.Text.IndexOf(keyWord, StringComparison.OrdinalIgnoreCase) != -1 || a.Comment.IndexOf(keyWord, StringComparison.OrdinalIgnoreCase) != -1).ToList();
-            //return conn.Table<Aya>().Where(a => (a.Text??string.Empty).ToLower().Contains(keyWord.ToLower()) || (a.Comment??string.Empty).ToLower().Contains(keyWord.ToLower())).ToList();
-            //return conn.Table<Aya>().Where(a => a.Text.ToLower().Contains(keyWord.ToLower()) || a.Comment.ToLower().Contains(keyWord.ToLower())).ToList();
-            //return conn.Table<Aya>().Where(a => string.Compare(a.Text, keyWord, StringComparison.InvariantCultureIgnoreCase) == 0 || string.Compare(a.Comment, keyWord, StringComparison.InvariantCultureIgnoreCase) == 0).ToList();
-            //return conn.Table<Aya>().Where(a => a.Text.Contains(keyWord, StringComparison.OrdinalIgnoreCase) || a.Comment.Contains(keyWord, StringComparison.OrdinalIgnoreCase)).ToList();
-            return conn.Table<Aya>().Where(a => a.Text.Contains(keyWord) || a.Comment.Contains(keyWord)).ToList();
+            var ayas = new List<Aya>();
+            using var connection = new SqliteConnection("Data Source=" + _dbPath);
+            // A custom SQLite function "ContainsKeyword" is created.
+            // This function checks if a field value contains the keyword, ignoring case.
+            connection.CreateFunction(
+                "ContainsKeyword",
+                (string fieldValue, string keyword) => fieldValue != null && keyword != null && fieldValue.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+            );
+            using var command = connection.CreateCommand();
+            command.CommandText = @"SELECT * FROM Aya WHERE ContainsKeyword(Text, $kw) or ContainsKeyword(Comment, $kw);";
+            command.Parameters.AddWithValue("$kw", keyWord);
+    
+            connection.Open();
+            using var oReader = command.ExecuteReader();
+            while (oReader.Read())
+            {
+                var aya = new Aya()
+                {
+                    Id = oReader.GetInt32(0), SuraId = oReader.GetInt32(1), AyaId = oReader.GetInt32(2),
+                    Text = oReader.GetString(3), Arabic = oReader.GetString(4),
+                    Comment = oReader.IsDBNull(5) ? null : oReader.GetString(5),
+                    DetailComment = oReader.IsDBNull(6) ? null : oReader.GetString(6),
+                    IsFavorite = !oReader.IsDBNull(7) && oReader.GetBoolean(7),
+                    HasNote = !oReader.IsDBNull(8) && oReader.GetBoolean(8)
+                };
+                ayas.Add(aya);
+            }
+            return ayas;
         }
+
     }
 }

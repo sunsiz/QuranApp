@@ -1,15 +1,16 @@
 ﻿@page "/favorites"
 @using QuranBlazor.Data
 @using System.Diagnostics
-@inject DBContext db
+@inject DbContext db
 @inject DialogService Dialog
 
 <div class="text-center mb-3">
     <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white">Белгиланган оятлар</h3>
 </div>
-
-@foreach (Aya aya in Ayas)
+@if (Ayas != null)
 {
+@foreach (FavoritesViewModel aya in Ayas)
+    {
     <div class="row my-2">
         <div class="col">
             <div class="card bg-light bg-gradient rounded-pill">
@@ -18,31 +19,37 @@
                     <div class="hstack">
                         <div class="vstack">
                             <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="text-black" title="Оятга ўтиш">
-                                <h3 class="card-title mb-0">@aya.SuraId. @db.GetSuraNameAsync(aya.SuraId).Result, @aya.AyaId оят</h3>
+                                <h3 class="card-title mb-0">@aya.SuraId. @aya.SuraName, @aya.AyaId оят</h3>
                                 <h4 class="card-body p-0 fs-6">@aya.Text.Substring(0, aya.Text.Length > 50 ? 50 : aya.Text.Length)</h4>
                             </a>
                         </div>
-                        <span class="oi oi-trash p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="()=>DeleteFavorite(aya)"></span>
+                        <span class="oi oi-trash p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="() => DeleteFavorite(aya)"></span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 }
-
+}
 @code {
-    public List<Aya> Ayas => db.GetFavorites().Result;
+    private List<FavoritesViewModel> Ayas { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Ayas = await db.GetFavoritesAsync().ConfigureAwait(false);
+        // StateHasChanged();
+    }
 
     // private string GetSuraName(int suraId)
     // {
     //     return db.GetSuraName(suraId);
     // }
-    private async Task DeleteFavorite(Aya aya)
+    private async Task DeleteFavorite(FavoritesViewModel aya)
     {
         var result = await DisplayConfirm("Ишончингиз комилми?", "Сиз белгилаган оят ўчирилади. Ишончингиз комилми?", "Ҳа", "Йўқ").ConfigureAwait(false);
         if (result)
         {
-            var deleted=db.DeleteFavorite(aya.AyaId, aya.SuraId);
+            var deleted = await db.DeleteFavoriteAsync(aya.AyaId, aya.SuraId);
             var removed = Ayas.Remove(Ayas.Find(a => a.AyaId == aya.AyaId && a.SuraId == aya.SuraId));
             Debug.WriteLine("Delete favorite aya result is " + removed);
             if (deleted > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Белгиланган оят олиб ташланди"));

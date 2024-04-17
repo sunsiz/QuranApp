@@ -12,7 +12,7 @@
     <div class="card my-3 rounded-pill card-bg-color">
         <div class="card-body d-flex justify-content-around align-items-center text-white py-2">
             @{
-                var bookmark = Preferences.Get("Bookmark", "");
+                var bookmark = Preferences.Get("Bookmark", "49:11");
             }
             <img src="devam.png" width="48px" height="48px" class="mx-2" alt="bookmark" />
             @if (bookmark != "")
@@ -72,7 +72,7 @@
         <div class="card-body">
             <div class="d-flex justify-content-evenly">
                 <a href="https://www.facebook.com/groups/178024384287085/?ref=share&mibextid=SDPelY"><img src="facebook.svg" width="32px" height="32px" class="mx-2" alt="facebook" /></a>
-                <a href=""><img src="instagram.svg" width="32px" height="32px" class="mx-2" alt="instagram" /></a>
+                @* <a href=""><img src="instagram.svg" width="32px" height="32px" class="mx-2" alt="instagram" /></a> *@
                 <a href="https://t.me/qalbiimda_quran3"><img src="telegram.svg" width="32px" height="32px" class="mx-2" alt="telegram" /></a>
             </div>
         </div>
