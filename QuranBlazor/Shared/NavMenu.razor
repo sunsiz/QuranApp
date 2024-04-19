@@ -64,58 +64,20 @@
         collapseNavMenu = !collapseNavMenu;
     }
 
-    private async Task GotoPopUp()
-    {
-        string prompted = await JsRuntime.InvokeAsync<string>("prompt", "Input sura and aya number (example: 16:90 or 16/90):"); // Prompt
-        if (!string.IsNullOrEmpty(prompted))
-        {
-            if (prompted.Contains(":") || prompted.Contains("/"))
-            {
-                int suraId, ayaId;
-                if (prompted.IndexOf(":", StringComparison.InvariantCultureIgnoreCase) > 0)
-                {
-                    suraId = Convert.ToInt32(prompted.Split(":")[0]);
-                    ayaId = Convert.ToInt32(prompted.Split(":")[1]);
-                    NavigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
-                    return;
-                }
-                if (prompted.IndexOf("/", StringComparison.InvariantCultureIgnoreCase) > 0)
-                {
-                    suraId = Convert.ToInt32(prompted.Split("/")[0]);
-                    ayaId = Convert.ToInt32(prompted.Split("/")[1]);
-                    NavigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
-                    return;
-                }
-            }
-        }
-        await JsRuntime.InvokeVoidAsync("alert", "Please check your input, it should be look like 16:90 or 16/90"); // Alert
-    }
-    
     private async Task DisplayPrompt()
     {
         var sureayetno = await DialogService.DisplayPrompt("Оятга ўтиш", "Сура ва оят рақамини киритинг (масалан: 16:90 ёки 16/90)", "Кириш", "Қайтиш");
         if (!string.IsNullOrEmpty(sureayetno) && (sureayetno.Contains(':') || sureayetno.Contains('/')))
         {
-            int suraId, ayaId;
-            if (sureayetno.IndexOf(":", StringComparison.InvariantCultureIgnoreCase) > 0)
+            char delimiter = sureayetno.Contains(':') ? ':' : '/';
+            var parts = sureayetno.Split(delimiter);
+            if (parts.Length == 2 && int.TryParse(parts[0], out int suraId) && int.TryParse(parts[1], out int ayaId))
             {
-                suraId = Convert.ToInt32(sureayetno.Split(":")[0]);
-                ayaId = Convert.ToInt32(sureayetno.Split(":")[1]);
-                NavigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
-                return;
-            }
-            if (sureayetno.IndexOf("/", StringComparison.InvariantCultureIgnoreCase) > 0)
-            {
-                suraId = Convert.ToInt32(sureayetno.Split("/")[0]);
-                ayaId = Convert.ToInt32(sureayetno.Split("/")[1]);
-                NavigationManager.NavigateTo("AyaList?SuraId=" + suraId + "#" + ayaId);
+                NavigationManager.NavigateTo($"AyaList?SuraId={suraId}#{ayaId}");
                 return;
             }
         }
-        else
-        {
-            DialogService.DisplayAlert("Нотўгри шакл", "Сиз боб ва оят рақамини нотўғри киритдингиз, қайта уриниб кўринг (мисол: 16:90 ёки 16/90)", "Қайтиш");
-        }
+        await DialogService.DisplayAlert("Нотўгри шакл", "Сиз боб ва оят рақамини нотўғри киритдингиз, қайта уриниб кўринг (мисол: 16:90 ёки 16/90)", "Қайтиш");
     }
 
 }

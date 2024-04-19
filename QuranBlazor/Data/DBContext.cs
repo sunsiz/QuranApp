@@ -30,6 +30,7 @@ namespace QuranBlazor.Data
             _conn.Trace = true;
 #endif
         }
+
         private async Task CopyFileToAppDataDirectory()
         {
             var filename = @"quran.db";
@@ -39,40 +40,27 @@ namespace QuranBlazor.Data
                 Debug.WriteLine($"Target file already exists: {targetPath}");
                 return;
             }
+
             try
             {
-                using var sourceStream = await Microsoft.Maui.Storage.FileSystem.Current.OpenAppPackageFileAsync(filename);
-                using var targetStream = new FileStream(targetPath, FileMode.CreateNew, FileAccess.Write);
-                sourceStream.CopyTo(targetStream);
-                Debug.WriteLine("File copied successfully");
+                Stream sourceStream;
+#if WINDOWS
+        sourceStream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, filename));
+#else
+                sourceStream = await Microsoft.Maui.Storage.FileSystem.Current.OpenAppPackageFileAsync(filename);
+#endif
+                using (sourceStream)
+                {
+                    using var targetStream = new FileStream(targetPath, FileMode.CreateNew, FileAccess.Write);
+                    sourceStream.CopyTo(targetStream);
+                    Debug.WriteLine("File copied successfully");
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"An error occurred: {ex.Message}");
             }
         }
-
-
-        //private async Task CopyFileToAppDataDirectory()
-        //{
-        //    try
-        //    {
-        //        var filename = @"quran.db";
-        //        // Open the source file
-        //        //using var inputStream = await Microsoft.Maui.Storage.FileSystem.Current.OpenAppPackageFileAsync(filename);
-        //        await using var inputStream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, filename));
-        //        // Create an output filename
-        //        var targetFile = Path.Combine(FileSystem.Current.AppDataDirectory, filename);
-
-        //        // Copy the file to the AppDataDirectory
-        //        using var outputStream = File.Create(targetFile);
-        //        await inputStream.CopyToAsync(outputStream);
-        //    }
-        //    catch (Exception exception)
-        //    {
-        //        Console.WriteLine(exception);
-        //    }
-        //}
 
         public Task<List<Sura>> GetSuraListAsync()
         {
@@ -96,7 +84,7 @@ namespace QuranBlazor.Data
             return _conn.Table<Note>().FirstOrDefaultAsync(n => n.AyaId == ayaId && n.SuraId == suraId);
         }
 
-        public Task<int> AddNote(int ayaId, int suraId, string suraName, string note)
+        public async Task<int> AddNoteAsync(int ayaId, int suraId, string suraName, string note)
         {
             var newNote = new Note()
             {
@@ -105,7 +93,10 @@ namespace QuranBlazor.Data
                 SuraId = suraId,
                 Title = $"{suraId}. Сура {suraName}, {ayaId}. Оят"
             };
-            var result = _conn.InsertAsync(newNote);
+            var result = await _conn.InsertAsync(newNote);
+            var aya = await _conn.Table<Aya>().FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaId);
+            aya.HasNote = true;
+            await _conn.UpdateAsync(aya);
             Debug.WriteLine("Add note result is:" + result);
 
             return result;
@@ -191,15 +182,18 @@ namespace QuranBlazor.Data
             using var command = connection.CreateCommand();
             command.CommandText = @"SELECT * FROM Aya WHERE ContainsKeyword(Text, $kw) or ContainsKeyword(Comment, $kw);";
             command.Parameters.AddWithValue("$kw", keyWord);
-    
+
             connection.Open();
             using var oReader = command.ExecuteReader();
             while (oReader.Read())
             {
                 var aya = new Aya()
                 {
-                    Id = oReader.GetInt32(0), SuraId = oReader.GetInt32(1), AyaId = oReader.GetInt32(2),
-                    Text = oReader.GetString(3), Arabic = oReader.GetString(4),
+                    Id = oReader.GetInt32(0),
+                    SuraId = oReader.GetInt32(1),
+                    AyaId = oReader.GetInt32(2),
+                    Text = oReader.GetString(3),
+                    Arabic = oReader.GetString(4),
                     Comment = oReader.IsDBNull(5) ? null : oReader.GetString(5),
                     DetailComment = oReader.IsDBNull(6) ? null : oReader.GetString(6),
                     IsFavorite = !oReader.IsDBNull(7) && oReader.GetBoolean(7),

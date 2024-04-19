@@ -14,25 +14,18 @@
     public int SuraId { get; set; }
 
     public string SuraName { get; set; }
-    private string arabicStyle => "font-size:" + Preferences.Get("ArabicFontSize", 16) + "px";
-    private string textStyle => "font-size:" + Preferences.Get("TranslateFontSize", 14) + "px";
-    private string commentStyle => "font-size:" + Preferences.Get("CommentFontSize", 12) + "px";
-    private string bookmarkAya = Preferences.Get("Bookmark", "");
+    private string arabicStyle => $"font-size:{Preferences.Get("ArabicFontSize", 16)}px";
+    private string textStyle => $"font-size:{Preferences.Get("TranslateFontSize", 14)}px";
+    private string commentStyle => $"font-size:{Preferences.Get("CommentFontSize", 12)}px";
+    private string bookmarkAya = Preferences.Get("Bookmark", "49:11");
     private bool isDataLoaded;
-    private bool backToTopCalled = false;
+    private bool preventScrollToFragment;
     public IEnumerable<Aya> Ayas { get; set; }
 
-    private async void ShareAya(Aya aya)
-    {
-        await Share.Default.RequestAsync(new ShareTextRequest
-            {
-                Text = aya.Text + "\n" + aya.Comment,
-                Title = aya.SuraId + ". Сура, " + aya.AyaId + ". Оят"
-            });
-    }
 
-    private async void Favorite(Aya aya)
+    private async ValueTask Favorite(Aya aya)
     {
+        preventScrollToFragment = true; // Set the flag when Favorite is called
         aya.IsFavorite = !aya.IsFavorite;
         await db.UpdateAyaAsync(aya);
         Dialog.DisplayToast("Оят белгиланди");
@@ -40,12 +33,15 @@
 
     private void Bookmark(Aya aya)
     {
+        preventScrollToFragment = true; // Set the flag when Bookmark is called
         Preferences.Set("Bookmark", aya.SuraId + ":" + aya.AyaId);
+        bookmarkAya = aya.SuraId + ":" + aya.AyaId;
         Dialog.DisplayToast("Сўнги ўқиган оятингиз деб белгиланди");
     }
 
     private async void Note(Aya aya)
     {
+        preventScrollToFragment = true; // Set the flag when Note is called
         if (aya.HasNote)
         {
             var confirmed = await Dialog.DisplayAlert("Огоҳлантириш", "Бу оят учун аллақачон эслатма қўшилган, агар давом этсангиз эски эслатма ўчирилади, уни ўчириб ташламоқчимисиз?", "Ҳа, эскисини ўчириб ташланг", "Йўқ").ConfigureAwait(false);
@@ -59,14 +55,14 @@
         {
             var note = await Dialog.DisplayPrompt("Эслатма қўшинг", "Оятга эслатма қўшинг", "Қўшиш", "Ёпиш").ConfigureAwait(false);
             if (string.IsNullOrEmpty(note)) return;
-            var result = await db.AddNote(aya.AyaId, aya.SuraId, SuraName, note);
+            var result = await db.AddNoteAsync(aya.AyaId, aya.SuraId, SuraName, note);
             aya.HasNote = true;
-            await db.UpdateAyaAsync(aya).ConfigureAwait(false);
+            // await db.UpdateAyaAsync(aya).ConfigureAwait(false);
             if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Оят эслатмаси қўшилди"));
         }
 
     }
-    
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -80,12 +76,13 @@
     protected override async Task OnParametersSetAsync()
     {
         Ayas = await db.GetAyaListAsync(SuraId).ConfigureAwait(false);
+        SuraName = await db.GetSuraNameAsync(SuraId).ConfigureAwait(false);
         await base.OnParametersSetAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!backToTopCalled)
+        if (!preventScrollToFragment)
         {
             if (firstRender)
             {
@@ -105,11 +102,11 @@
 
     private async void OnLocationChanged(object sender, LocationChangedEventArgs e)
     {
-        if (!backToTopCalled)
+        if (!preventScrollToFragment)
         {
             await ScrollToFragment();
         }
-        backToTopCalled = false; // Reset the flag after each render
+        preventScrollToFragment = false; // Reset the flag after each render
     }
 
     private async Task ScrollToFragment()
@@ -121,7 +118,7 @@
             // Handle text fragment (https://example.org/#test:~:text=foo)
             // https://github.com/WICG/scroll-to-text-fragment/
             var elementId = fragment.Substring(1);
-            
+
             if (!string.IsNullOrEmpty(elementId))
             {
                 await JsRuntime.InvokeVoidAsync("BlazorScrollToId", elementId);
@@ -130,7 +127,7 @@
     }
     private async Task BackToTop()
     {
-        backToTopCalled = true; // Set the flag when BackToTop is called
+        preventScrollToFragment = true; // Set the flag when BackToTop is called
         await JsRuntime.InvokeVoidAsync("BlazorScrollToTop");
     }
     string AyaFilter;
@@ -141,59 +138,62 @@
     }
 }
 
-<div class="text-white mb-3">@*  form-floating *@
+<div class="text-white mb-3">
+    @*  form-floating *@
     <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" type="search" placeholder="Оят Излаш" @bind="AyaFilter" @bind:event="oninput" @bind:after="FilterAya" aria-label="Оят Излаш">
     @* <label class="primary-color" for="floatingSearch">Оят Излаш</label> *@
 </div>
 
 <div class="text-center vstack shadow-lg bg-light bg-gradient rounded-pill" id="surahead">
     <h3 class="pt-3 pb-0 text-black">@SuraId. @SuraName сураси</h3>
-    @if (SuraId is not (1 or 9)){<span class="text-center arabic mx-auto fs-2 pb-2 pt-0">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>}
+    @if (SuraId is not (1 or 9))
+    {
+        <span class="text-center arabic mx-auto fs-2 pb-2 pt-0">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
+    }
 </div>
 @if (Ayas != null)
 {
-@foreach (Aya aya in Ayas)
-{
-    <div class="row my-3" id="@aya.AyaId">
-        <div class="col">
-            <div class="card bg-light bg-gradient rounded-pill">
-                <div class="card-body">
-                    <div class="vstack">
-                        <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
-                            <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.AyaId</span>
-                            @* <span class="oi oi-share ms-auto" title="Share" aria-hidden="true" @onclick="()=>ShareAya(aya)"><img src="target.svg" width="28px" height="28px" alt="paylaş" /></span> *@
-                            @* oi oi-heart *@<span class=' @(aya.IsFavorite ? "text-warning" : "text-white")' title="Оятни белгилаш" aria-hidden="true" @onclick="() => Favorite(aya)"><img src="pin.png" width="28px" height="28px" alt="Оятни белгилаш"/></span>
-                            @* oi oi-clipboard *@<span class=' @(aya.HasNote ? "text-warning" : "text-white")' title="Эслатма қўшинг" aria-hidden="true" @onclick="() => Note(aya)"><img src="note.png" width="28px" height="28px" alt="Эслатма қўшинг"/></span>
-                            @* oi oi-bookmark *@<span class=' me-3 @(SuraId + ":" + aya.Id == bookmarkAya)?"text-warning":"text-white")' title="Сўнг ўқилган оят деб белгилаш" aria-hidden="true" @onclick="() => Bookmark(aya)"><img src="bookmark.png" width="28px" height="28px" alt="Сўнг ўқилган оят деб белгилаш"/></span>
-                        </h5>
-                        <p class="arabic mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
-                        @if (string.IsNullOrEmpty(AyaFilter))
-                        {
-                            <p class="my-2" style=@textStyle>@aya.Text</p>
-                            if (aya.Comment != null)
+    @foreach (Aya aya in Ayas)
+    {
+        <div class="row my-3" id="@aya.AyaId">
+            <div class="col">
+                <div class="card bg-light bg-gradient rounded-pill">
+                    <div class="card-body">
+                        <div class="vstack">
+                            <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
+                                <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.AyaId</span>
+                                <span class="text-white" title="Оятни белгилаш" aria-hidden="true" @onclick="async () => await Favorite(aya)"><img src="@(aya.IsFavorite ? "isaret-ayet-ak.png" : "pin.png")" width="28px" height="28px" alt="Оятни белгилаш" /></span>
+                                <span title="Эслатма қўшинг" aria-hidden="true" @onclick="() => Note(aya)"><img src="@(aya.HasNote ? "pinned-notes-ak.png" : "note.png")" width="28px" height="28px" alt="Эслатма қўшинг" /></span>
+                                <span class="me-3" title="Сўнг ўқилган оят деб белгилаш" aria-hidden="true" @onclick="() => Bookmark(aya)"><img src="@((SuraId + ":" + aya.AyaId == bookmarkAya) ? "devam.png" : "bookmark.png")" width="28px" height="28px" alt="Сўнг ўқилган оят деб белгилаш" /></span>
+                            </h5>
+                            <p class="arabic mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
+                            @if (string.IsNullOrEmpty(AyaFilter))
                             {
-                                <hr/>
-                                <p style=@commentStyle>@((MarkupString)aya.Comment)</p>
+                                <p class="my-2" style=@textStyle>@aya.Text</p>
+                                if (aya.Comment != null)
+                                {
+                                    <hr />
+                                    <p style=@commentStyle>@((MarkupString)aya.Comment)</p>
+                                }
                             }
-                        }
-                        else
-                        {
-                            <p class="my-2" style=@textStyle>
-                                @((MarkupString)aya.Text.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
-                            </p>
-                            @if (aya.Comment != null)
+                            else
                             {
-                                <hr/>
-                                <p style=@commentStyle>
-                                    @((MarkupString)aya.Comment.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase)))
+                                <p class="my-2" style=@textStyle>
+                                    @((MarkupString)aya.Text.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
                                 </p>
+                                @if (aya.Comment != null)
+                                {
+                                    <hr />
+                                    <p style=@commentStyle>
+                                        @((MarkupString)aya.Comment.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
+                                    </p>
+                                }
                             }
-                        }
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-}
+    }
 }
 <div id="BackToTop" class="Shown" @onclick="BackToTop"></div>

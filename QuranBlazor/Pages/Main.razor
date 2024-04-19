@@ -3,9 +3,8 @@
 
 
 <div class="container-fluid my-3">
-    <form class="d-flex" action="search">@*  form-floating *@
+    <form class="d-flex" action="search">
         <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" placeholder="Излаш" aria-label="Search" name="KeyWord">
-        @* <label class="primary-color fw-bold fs-4" for="floatingSearch">Излаш</label> *@
         <button class="btn rounded-pill p-0 oi oi-magnifying-glass fw-bold primary-color" style="font-size: 36px; margin-left: -66px;" type="submit"></button>
     </form>
 
@@ -13,20 +12,19 @@
         <div class="card-body d-flex justify-content-around align-items-center text-white py-2">
             @{
                 var bookmark = Preferences.Get("Bookmark", "49:11");
+                if (!string.IsNullOrEmpty(bookmark))
+                {
+                    var suraId = bookmark.Split(':')[0];
+                    var ayaId = bookmark.Split(':')[1];
+                    <img src="devam.png" width="48px" height="48px" class="mx-2" alt="bookmark" />
+                    <span class="fw-bold fs-4">@($"{suraId}. сура, {ayaId}. оят")</span>
+                    <a href="AyaList?SuraId=@suraId#@ayaId" class="btn btn-light align-self-center ms-auto rounded-pill fw-bold">Ўқишни давом эттиринг</a>
+                }
+                else
+                {
+                    <a href="#" class="btn btn-light disabled ms-auto rounded-pill fw-bold">Ўқишни давом эттиринг</a>
+                }
             }
-            <img src="devam.png" width="48px" height="48px" class="mx-2" alt="bookmark" />
-            @if (bookmark != "")
-            {
-                var suraId = bookmark.Split(':')[0];
-                var ayaId = bookmark.Split(':')[1];
-                <span class="fw-bold fs-4">@suraId. сура, @ayaId. оят</span>
-                <a href="AyaList?SuraId=@suraId#@ayaId" class="btn btn-light align-self-center ms-auto rounded-pill fw-bold">Ўқишни давом эттиринг</a>
-            }
-            else
-            {
-                <a href="#" class="btn btn-light disabled ms-auto rounded-pill fw-bold">Ўқишни давом эттиринг</a>
-            }
-
         </div>
     </div>
 

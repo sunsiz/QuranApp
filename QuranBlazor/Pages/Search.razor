@@ -8,10 +8,20 @@
     [SupplyParameterFromQuery]
     public string KeyWord { get; set; }
 
-    private IEnumerable<Aya> Ayas => db.GetSearchResult(KeyWord);
+    private IEnumerable<Aya> _ayas;
+    private IEnumerable<Aya> Ayas => _ayas ??= db.GetSearchResult(KeyWord);
+    private Regex _highlightRegex;
+
+    private string HighlightKeyword(string input)
+    {
+        if (_highlightRegex == null)
+        {
+            _highlightRegex = new Regex(KeyWord, RegexOptions.IgnoreCase);
+        }
+        return _highlightRegex.Replace(input, m => $"<span class='search-term'>{m.Value}</span>");
+    }
 }
 
-@* <div class="mx-4"><h3 class="px-5 py-3 shadow-lg w-100 bg-warning bg-gradient rounded-3">Search</h3></div> *@
 
 @if (string.IsNullOrEmpty(KeyWord))
 {
@@ -38,15 +48,15 @@ else
                     <div class="card-body">
                         <div class="vstack">
                             <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
-                                <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.SuraId:@aya.AyaId</span>
+                                <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@($"{aya.SuraId}:{aya.AyaId}")</span>
                                 <a class="oi oi-share ms-auto me-3 text-white stretched-link" title="Оятга ўтиш" href="AyaList?SuraId=@aya.SuraId#@aya.AyaId"></a>@* &SuraName=@db.GetSuraName(aya.SuraId) *@
                             </h5>
                             <p class="arabic fs-3 fw-bold mb-0 me-2">@aya.Arabic</p>
-                            <p class="my-2">@((MarkupString)Regex.Replace(aya.Text, KeyWord, m => $"<span class='search-term'>{m.Value}</span>", RegexOptions.IgnoreCase))</p><hr />
+                            <p class="my-2">@((MarkupString)HighlightKeyword(aya.Text))</p><hr />
                             <p>
                                 @if (aya.Comment != null)
                                 {
-                                    @((MarkupString)Regex.Replace(aya.Comment, KeyWord,  m=> $"<span class='search-term'>{m.Value}</span>", RegexOptions.IgnoreCase))
+                                    @((MarkupString)HighlightKeyword(aya.Comment))
                                 }
                             </p>
                         </div>

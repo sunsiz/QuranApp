@@ -20,9 +20,6 @@ namespace QuranBlazor
             builder.Services.AddBlazorWebViewDeveloperTools();
             builder.Logging.AddDebug();
 #endif
-            //builder.Services.AddDbContextFactory<ContactContext>(opt =>
-            //    opt.UseSqlite($"Data Source={nameof(ContactContext.ContactsDb)}.db"));
-            builder.Services.AddSingleton<WeatherForecastService>();
             builder.Services.AddSingleton<DialogService>();
             // Register DBContext and the SQLite database
             builder.Services.AddScoped<DbContext>(s => ActivatorUtilities.CreateInstance<DbContext>(s, dbPath));

@@ -10,50 +10,52 @@
 </div>
 @if (notes != null)
 {
-@foreach (Note note in notes)
-{
-    <div class="row my-2">
-        <div class="col">
-            <div class="card bg-light bg-gradient rounded-pill">
-                <div class="card-body py-1">
-                    @* &SuraName=@db.GetSuraName(note.SuraId) *@
-                    <div class="hstack">
-                        <div class="vstack">
-                            <a href="AyaList?SuraId=@note.SuraId#@note.AyaId" class="text-black" title="Оятга ўтиш">
-                                <h3 class="card-title mb-0">@note.Title</h3>
-                                <h4 class="tab-content fs-6">@note.Content</h4>
-                            </a>
+    @foreach (Note note in notes)
+    {
+        <div class="row my-2">
+            <div class="col">
+                <div class="card bg-light bg-gradient rounded-pill">
+                    <div class="card-body py-1">
+                        <div class="hstack">
+                            <div class="vstack">
+                                <a href="AyaList?SuraId=@note.SuraId#@note.AyaId" class="text-black" title="Оятга ўтиш">
+                                    <h3 class="card-title mb-0">@note.Title</h3>
+                                    <h4 class="tab-content fs-6">@note.Content</h4>
+                                </a>
+                            </div>
+                            <span class="oi oi-trash p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="() => DeleteNote(note)"></span>
                         </div>
-                        <span class="oi oi-trash p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="() => DeleteNote(note)"></span>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-}
+    }
 }
 
 @code {
-    public List<Note> notes { get; set; }
+    private List<Note> notes { get; set; }
     protected override async Task OnInitializedAsync()
     {
         notes = await db.GetNotesAsync().ConfigureAwait(false);
     }
-    
+
     private async Task DeleteNote(Note note)
     {
         var result = await DisplayConfirm("Ҳақиқатан ҳам ўчирмоқчимисиз?", "Сиз белгилаган қайд ўчирилади. Ишончингиз комилми?", "Ҳа", "Йўқ").ConfigureAwait(false);
         if (result)
         {
             var deleted = await db.DeleteNoteAsync(note.AyaId, note.SuraId);
-            var removed = notes.Remove(notes.Find(a => a.AyaId == note.AyaId && a.SuraId == note.SuraId));
-            Debug.WriteLine("Delete note result is " + removed); 
-            if (deleted > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Қайдлардан олиб ташланди"));
+            if (deleted > 0)
+            {
+                var removed = notes.Remove(notes.Find(a => a.AyaId == note.AyaId && a.SuraId == note.SuraId));
+                Debug.WriteLine($"Delete note result is {removed}");
+                MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Қайдлардан олиб ташланди"));
+            }
         }
     }
 
-    public async Task<bool> DisplayConfirm(string title, string message, string accept, string cancel)
+    private Task<bool> DisplayConfirm(string title, string message, string accept, string cancel)
     {
-        return await Application.Current.MainPage.DisplayAlert(title, message, accept, cancel);
+        return Application.Current.MainPage.DisplayAlert(title, message, accept, cancel);
     }
 }

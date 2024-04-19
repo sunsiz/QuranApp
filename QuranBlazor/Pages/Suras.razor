@@ -19,32 +19,34 @@
 
 }
 
-<div class="text-white mb-3">@*  form-floating *@
+<div class="text-white mb-3">
+    @*  form-floating *@
     <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" type="search" placeholder="Сура Излаш" @bind="SuraFilter" @bind:event="oninput" @bind:after="FilterSura" aria-label="Сура Излаш">
     @* <label class="primary-color" for="floatingSearch">Сура Излаш</label> *@
 </div>
 @if (SuraList != null)
 {
-@foreach (Sura sura in SuraList)
-{
-    <div class="row my-2">
-        <div class="col">
-            <div class="card bg-light bg-gradient rounded-pill">
-                <div class="card-body py-1">
-                    <a href="AyaList?SuraId=@sura.Id&SuraName=@sura.Name" class="stretched-link text-black">
-                        <div class="hstack">
-                            <div class="vstack">
-                                <h5 class="card-title mb-0">@sura.Id. @sura.Name</h5>
-                                @{ var revealed = sura.RevealedIn ? "Макка" : "Мадина"; }
-                                <p class="card-text">@* <span class="my-0">@sura.Meaning</span> -  *@@revealed (@sura.AyaCount)</p>
+    @foreach (Sura sura in SuraList)
+    {
+        <div class="row my-2">
+            <div class="col">
+                <div class="card bg-light bg-gradient rounded-pill">
+                    <div class="card-body py-1">
+                        <a href="AyaList?SuraId=@sura.Id&SuraName=@sura.Name" class="stretched-link text-black">
+                            <div class="hstack">
+                                <div class="vstack">
+                                    <h5 class="card-title mb-0">@sura.Id. @sura.Name</h5>
+                                    @{
+                                        var revealed = sura.RevealedIn ? "Макка" : "Мадина";
+                                    }
+                                    <p class="card-text">@* <span class="my-0">@sura.Meaning</span> -  *@@revealed (@sura.AyaCount)</p>
+                                </div>
+                                <h2 class="arabic">@sura.ArabicName</h2>
                             </div>
-                            <h2 class="arabic">@sura.ArabicName</h2>
-                        </div>
-                    </a>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    }
 }
-}
-@* <SurveyPrompt Title="How is Blazor working for you?" /> *@

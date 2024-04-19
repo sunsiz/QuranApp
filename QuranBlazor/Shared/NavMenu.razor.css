@@ -32,7 +32,7 @@
     }
 
     .nav-item ::deep a {
-        color: black/*#d7d7d7*/;
+        color: black;/*#d7d7d7*/
         border-radius: 4px;
         height: 3rem;
         display: flex;
@@ -50,13 +50,13 @@
     color: white;
 }
 
-@media (min-width: 641px) {
+/*@media (min-width: 641px) {
     .navbar-toggler {
         display: none;
     }
 
-    .collapse {
+    .collapse {*/
         /* Never collapse the sidebar for wide screens */
-        display: block;
+        /*display: block;
     }
-}
+}*/
