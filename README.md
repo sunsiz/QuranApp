@@ -26,35 +26,35 @@ A comprehensive Quran study tool, designed for the Uzbek language, leveraging th
 
 ### Phone Screenshots
 
-![Home Page]("ScreenShots/Screenshot_1713472935.png")
+![Home Page](ScreenShots/Screenshot_1713472935.png)
 
-![Sura Listing]("ScreenShots/Screenshot_1713472945.png")
+![Sura Listing](ScreenShots/Screenshot_1713472945.png)
 
-![Aya Listing]("ScreenShots/Screenshot_1713472999.png")
+![Aya Listing](ScreenShots/Screenshot_1713472999.png)
 
-![Favorite Ayas]("ScreenShots/Screenshot_1713473009.png")
+![Favorite Ayas](ScreenShots/Screenshot_1713473009.png)
 
-![Notes]("ScreenShots/Screenshot_1713473013.png")
+![Notes](ScreenShots/Screenshot_1713473013.png)
 
-![Settings]("ScreenShots/Screenshot_1713473034.png")
+![Settings](ScreenShots/Screenshot_1713473034.png)
 
-![Search]("ScreenShots/Screenshot_1713527643.png")
+![Search](ScreenShots/Screenshot_1713527643.png)
 
 ### Tablet Screenshots
 
-![Home Page]("ScreenShots/Screenshot_1713511293.png")
+![Home Page](ScreenShots/Screenshot_1713511293.png)
 
-![Sura Listing]("ScreenShots/Screenshot_1713511316.png")
+![Sura Listing](ScreenShots/Screenshot_1713511316.png)
 
-![Aya Listing]("ScreenShots/Screenshot_1713511360.png")
+![Aya Listing](ScreenShots/Screenshot_1713511360.png)
 
-![Favorite Ayas]("ScreenShots/Screenshot_1713511381.png")
+![Favorite Ayas](ScreenShots/Screenshot_1713511381.png)
 
-![Notes]("ScreenShots/Screenshot_1713511387.png")
+![Notes](ScreenShots/Screenshot_1713511387.png)
 
-![Settings]("ScreenShots/Screenshot_1713511373.png")
+![Settings](ScreenShots/Screenshot_1713511373.png)
 
-![Search]("ScreenShots/Screenshot_1713511429.png")
+![Search](ScreenShots/Screenshot_1713511429.png)
 
 ## Future Enhancements
 
