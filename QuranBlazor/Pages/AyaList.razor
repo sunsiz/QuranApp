@@ -1,6 +1,8 @@
 ﻿@page "/ayalist"
 @using QuranBlazor.Data
 @using System.Diagnostics.Tracing
+@using System.Text.RegularExpressions
+@using System.Diagnostics
 @inject DbContext db
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavigationManager
@@ -16,7 +18,7 @@
     public string SuraName { get; set; }
     private string arabicStyle => $"font-size:{Preferences.Get("ArabicFontSize", 16)}px";
     private string textStyle => $"font-size:{Preferences.Get("TranslateFontSize", 14)}px";
-    private string commentStyle => $"font-size:{Preferences.Get("CommentFontSize", 12)}px";
+    private string commentStyle => $"font-size:{Preferences.Get("CommentFontSize", 12)}px;margin-bottom:0px";
     private string bookmarkAya = Preferences.Get("Bookmark", "49:11");
     private bool isDataLoaded;
     private bool preventScrollToFragment;
@@ -136,6 +138,53 @@
     {
         Ayas = Ayas.Where(a => a.Text.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase) || (a.Comment != null && a.Comment.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase)));
     }
+
+    private async Task ShareAya(Aya aya)
+    {
+        await Share.Default.RequestAsync(new ShareTextRequest
+        {
+            Title = $"{SuraId}. сура {SuraName}, {aya.AyaId}. оят",
+                Text = $"{aya.Arabic}\n{aya.Text}",
+                Uri = "https://www.musulmonlar.com"
+        });
+    }
+
+    private string ProcessComment(string comment)
+    {
+    // Regular expression to match patterns like (Нисо 4/1, Аъроф 7/45, Юнус 10/3, Алақ 96/1) or (Юнус 12/50)
+        var regex = new Regex(@"\(([^)]+)\)");
+        return regex.Replace(comment, match =>
+        {
+            var parts = match.Groups[1].Value.Split(new[] { ',',';' }, StringSplitOptions.RemoveEmptyEntries);
+            var result = new List<string>();
+
+            foreach (var part in parts)
+            {
+                Debug.WriteLine($"Regex match part: {part}");
+                var subParts = part.Split(new[] { '/', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                if (subParts.Length == 2)
+                {
+                    var suraName = subParts[0].Trim().Split(' ')[0];
+                    var suraId = subParts[0].Trim().Split(' ')[1];
+                    var ayaPart = subParts[1].Trim().Split('-')[0]; // Handle ranges like 7-8 by taking only the first part
+                    if (int.TryParse(ayaPart, out int ayaId))
+                    {
+                        result.Add($"<a href=\"/AyaList?SuraId={suraId}#{ayaId}\">{part}</a>");
+                    }
+                    else
+                    {
+                        result.Add(part);
+                    }
+                }
+                else
+                {
+                    result.Add(part);
+                }
+            }
+
+            return $"({string.Join(", ", result)})";
+        });
+    }
 }
 
 <div class="text-white mb-3">
@@ -162,9 +211,10 @@
                         <div class="vstack">
                             <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
                                 <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.AyaId</span>
-                                <span class="text-white" title="Оятни белгилаш" aria-hidden="true" @onclick="async () => await Favorite(aya)"><img src="@(aya.IsFavorite ? "isaret-ayet-ak.png" : "pin.png")" width="28px" height="28px" alt="Оятни белгилаш" /></span>
-                                <span title="Эслатма қўшинг" aria-hidden="true" @onclick="() => Note(aya)"><img src="@(aya.HasNote ? "pinned-notes-ak.png" : "note.png")" width="28px" height="28px" alt="Эслатма қўшинг" /></span>
-                                <span class="me-3" title="Сўнг ўқилган оят деб белгилаш" aria-hidden="true" @onclick="() => Bookmark(aya)"><img src="@((SuraId + ":" + aya.AyaId == bookmarkAya) ? "devam.png" : "bookmark.png")" width="28px" height="28px" alt="Сўнг ўқилган оят деб белгилаш" /></span>
+                                <span title="оятни баҳам кўринг" aria-hidden="true" @onclick="async () => await ShareAya(aya)"><img src="share_white.png" width="28" height="28" alt="оятни баҳам кўринг" /></span>
+                                <span class="text-white" title="Оятни белгилаш" aria-hidden="true" @onclick="async () => await Favorite(aya)"><img src="@(aya.IsFavorite ? "heart_check_white.png" : "heart_plus_white.png")" width="28" height="28" alt="Оятни белгилаш" /></span>
+                                <span title="Эслатма қўшинг" aria-hidden="true" @onclick="() => Note(aya)"><img src="@(aya.HasNote ? "note_alt_white.png" : "add_notes_white.png")" width="28" height="28" alt="Эслатма қўшинг" /></span>
+                                <span class="me-3" title="Сўнг ўқилган оят деб белгилаш" aria-hidden="true" @onclick="() => Bookmark(aya)"><img src="@((SuraId + ":" + aya.AyaId == bookmarkAya) ? "bookmark_added_white.png" : "bookmark_add_white.png")" width="28" height="28" alt="Сўнг ўқилган оят деб белгилаш" /></span>
                             </h5>
                             <p class="arabic mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
                             @if (string.IsNullOrEmpty(AyaFilter))
@@ -173,7 +223,7 @@
                                 if (aya.Comment != null)
                                 {
                                     <hr />
-                                    <p style=@commentStyle>@((MarkupString)aya.Comment)</p>
+                                    <p style=@commentStyle>@((MarkupString)ProcessComment(aya.Comment))</p>
                                 }
                             }
                             else

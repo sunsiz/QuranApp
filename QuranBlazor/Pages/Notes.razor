@@ -6,7 +6,7 @@
 @inject IJSRuntime JsRuntime
 
 <div class="text-white text-center mb-3">
-    <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white">Қайдлар</h3>
+    <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white"><img src="note_alt_white.png" width="48px" height="48px" class="mx-2" /> Қайдлар</h3>
 </div>
 @if (notes != null)
 {
@@ -23,7 +23,7 @@
                                     <h4 class="tab-content fs-6">@note.Content</h4>
                                 </a>
                             </div>
-                            <span class="oi oi-trash p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="() => DeleteNote(note)"></span>
+                            <span class="p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="() => DeleteNote(note)"><img src="note_delete_black.png" width="48px" height="48px" class="mx-2" /></span>@* oi oi-trash *@
                         </div>
                     </div>
                 </div>

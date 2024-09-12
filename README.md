@@ -20,6 +20,8 @@ A comprehensive Quran study tool, designed for the Uzbek language, leveraging th
 
 - **Resume Reading**: Marks the last reading position, enabling users to resume from where they left off.
 
+- **Sharing**: Facilitates sharing Ayas and notes with others.
+
 - **Database Integration**: Integrates with an existing database for a rich, detailed, and accurate source of Quranic text, translations, and comments.
 
 ## Screenshots

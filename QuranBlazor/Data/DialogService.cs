@@ -14,7 +14,7 @@ namespace QuranBlazor.Data
             if (title == "Оятга ўтиш")
             {
                 return await Application.Current.MainPage
-                    .DisplayPromptAsync(title, message, accept, cancel, "16:90", 6, null, "16/90")
+                    .DisplayPromptAsync(title, message, accept, cancel, "16:90 ёки 16/90", 6, null, "")
                     .ConfigureAwait(false);
             }
             else
