@@ -2,6 +2,11 @@
 
 A comprehensive Quran study tool, designed for the Uzbek language, leveraging the power of .NET Multi-platform App UI (MAUI) and Blazor Hybrid technologies.
 
+<a href="https://play.google.com/store/apps/details?id=org.suleymaniyevakfi.quron"><img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" width="270" height="80"></a>
+
+<a href="https://apps.apple.com/us/app/qur%CA%BCon-tafsiri/id6499478366"><img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Download on the App Store" width="323" height="125"></a>
+
+
 ## Key Features
 
 - **Uzbek Translation**: Offers a comprehensive Quran translation in Uzbek, presented alongside the original Arabic text.
