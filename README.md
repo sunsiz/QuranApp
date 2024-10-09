@@ -31,11 +31,11 @@ A comprehensive Quran study tool, designed for the Uzbek language, leveraging th
 
 ## Update log
 
-### Version 1.0.1 (2024-10-10)
+### Version 1.1 (2024-10-10)
 * Fixed some errors in content.
 * improved UI and some features.
 
-### Version 1.0.0 (2024-04-27)
+### Version 1.0 (2024-04-27)
 * First release
 
 
