@@ -1,7 +1,9 @@
 ﻿@page "/search"
 @using QuranBlazor.Data
 @using System.Text.RegularExpressions
+@using System.Web
 @inject DbContext db
+@inject NavigationManager Navigation
 
 @code {
     [Parameter]
@@ -11,58 +13,117 @@
     private IEnumerable<Aya> _ayas;
     private IEnumerable<Aya> Ayas => _ayas ??= db.GetSearchResult(KeyWord);
     private Regex _highlightRegex;
+    private string arabicStyle => $"font-size:{Preferences.Get("ArabicFontSize", 16)}px";
+    private string textStyle => $"font-size:{Preferences.Get("TranslateFontSize", 14)}px";
+    private string commentStyle => $"font-size:{Preferences.Get("CommentFontSize", 12)}px;margin-bottom:0px";
+
+    protected override void OnInitialized()
+    {
+        KeyWord = HttpUtility.UrlDecode(KeyWord);
+    }
 
     private string HighlightKeyword(string input)
     {
         if (_highlightRegex == null)
         {
-            _highlightRegex = new Regex(KeyWord, RegexOptions.IgnoreCase);
+            var escapedKeyword = Regex.Escape(KeyWord);
+            _highlightRegex = new Regex(escapedKeyword, RegexOptions.IgnoreCase);
         }
         return _highlightRegex.Replace(input, m => $"<span class='search-term'>{m.Value}</span>");
+    }
+    private string ProcessComment(string comment)
+    {
+        // Regular expression to match patterns like (Нисо 4/1, Аъроф 7/45, Юнус 10/3, Алақ 96/1) or (Юнус 12/50)
+        var regex = new Regex(@"\(([^)]+)\)", RegexOptions.Compiled);
+        try
+        {
+            return regex.Replace(comment, match =>
+            {
+                var parts = match.Groups[1].Value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                var result = new List<string>();
+
+                foreach (var part in parts)
+                {
+                    //Debug.WriteLine($"Regex match part: {part}");
+                    var subParts = part.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (subParts.Length == 2 && subParts[0].Trim().Contains(' '))
+                    {
+                        // var suraName = subParts[0].Trim().Split(' ')[0];
+                        // var suraId = subParts[0].Trim().Split(' ')[1];
+                        var trimmedParts = subParts[0].Trim().Split(' ');
+                        var suraId = trimmedParts.Last();
+                        // var suraName = string.Join(' ', trimmedParts.Take(trimmedParts.Length - 1));
+                        var ayaPart = subParts[1].Trim().Split('-')[0]; // Handle ranges like 7-8 by taking only the first part
+                        result.Add(int.TryParse(ayaPart, out int ayaId) ? $"<a href=\"/AyaList?SuraId={suraId}#{ayaId}\">{part}</a>" : part);
+                    }
+                    else
+                    {
+                        result.Add(part);
+                    }
+                }
+
+                return $"({string.Join(", ", result)})";
+            });
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine($"Error processing comment: {exception.Message}");
+            // Dialog.DisplayAlert("Comment parsing issue", $"An error occurred while processing the comment:\n{exception.Message}", "Close");
+            return "";
+        }
     }
 }
 
 
-@if (string.IsNullOrEmpty(KeyWord))
-{
-    <div class="mx-1 shadow-lg bg-light bg-gradient rounded-pill text-center">
-        <div class="d-flex align-items-center">
-            <form class="w-100 m-3" action="Search">
-                <input type="search" class="form-control" placeholder="Излаш..." aria-label="Излаш" name="KeyWord">
+<div class="container-fluid my-3">
+    @if (string.IsNullOrEmpty(KeyWord))
+    {
+        @* <label class="text-danger-emphasis my-3">"@KeyWord" is not valid search keyword, please try again.</label> *@
+        <div class="mx-1 shadow-lg bg-light bg-gradient rounded-pill text-center">
+            <form class="d-flex" action="/Search" method="get" onsubmit="return encodeSearchTerm()">
+                <input class="form-control rounded-pill primary-color p-3" id="floatingSearch" placeholder="Излаш" aria-label="Излаш" name="KeyWord">
+                <button class="btn rounded-pill p-0 fw-bold primary-color" style="font-size: 36px; margin-left: -66px;" type="submit"><img src="search.png" width="48" height="48" class="mx-2" alt="search" /></button>
             </form>
         </div>
-    </div>
-}
-else
-{
-    <div class="mx-1"><h3 class="p-3 shadow-lg w-100 bg-light bg-gradient rounded-pill text-center">Излаш натижалари: "@KeyWord" @Ayas.Count() та жойда топилди. </h3></div>
-}
-
-@if (Ayas != null)
-{
-    @foreach (Aya aya in Ayas)
+    }
+    else
     {
-        <div class="row my-3" id="@aya.AyaId">
-            <div class="col">
-                <div class="card bg-light bg-gradient">
-                    <div class="card-body">
-                        <div class="vstack">
-                            <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
-                                <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@($"{aya.SuraId}:{aya.AyaId}")</span>
-                                <a class="oi oi-share ms-auto me-3 text-white stretched-link" title="Оятга ўтиш" href="AyaList?SuraId=@aya.SuraId#@aya.AyaId"></a>@* &SuraName=@db.GetSuraName(aya.SuraId) *@
-                            </h5>
-                            <p class="arabic fs-3 fw-bold mb-0 me-2">@aya.Arabic</p>
-                            <p class="my-2">@((MarkupString)HighlightKeyword(aya.Text))</p><hr />
-                            <p>
-                                @if (aya.Comment != null)
-                                {
-                                    @((MarkupString)HighlightKeyword(aya.Comment))
-                                }
-                            </p>
+        <div class="mx-1"><h3 class="p-3 shadow-lg w-100 bg-light bg-gradient rounded-pill text-center">Излаш натижалари: "@KeyWord" @Ayas.Count() та жойда топилди. </h3></div>
+    }
+    @if (Ayas != null)
+    {
+        @foreach (Aya aya in Ayas)
+        {
+            <div class="row my-3" id="@aya.AyaId">
+                <div class="col">
+                    <div class="card bg-light bg-gradient">
+                        <div class="card-body">
+                            <div class="vstack">
+                                <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
+                                    <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@($"{aya.SuraId}:{aya.AyaId}")</span>
+                                    <a class="oi oi-share ms-auto me-3 text-white stretched-link" title="Оятга ўтиш" href="AyaList?SuraId=@aya.SuraId#@aya.AyaId"></a>@* &SuraName=@db.GetSuraName(aya.SuraId) *@
+                                </h5>
+                                <p class="arabic fs-3 fw-bold mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
+                                <p class="my-2" style=@textStyle>@((MarkupString)HighlightKeyword(aya.Text))</p><hr />
+                                <div>
+                                    @if (aya.Comment != null)
+                                    {
+                                        <hr />
+                                        <p style=@commentStyle>@((MarkupString)HighlightKeyword(ProcessComment(aya.Comment)))</p>
+                                    }
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        }
     }
-}
+</div>
+<script>
+    function encodeSearchTerm() {
+        var input = document.getElementById('floatingSearch');
+        input.value = encodeURIComponent(input.value).replace(/\./g, '%2E');
+        return true;
+    }
+</script>

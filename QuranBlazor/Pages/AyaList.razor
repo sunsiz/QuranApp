@@ -21,6 +21,8 @@
     private string commentStyle => $"font-size:{Preferences.Get("CommentFontSize", 12)}px;margin-bottom:0px";
     private string bookmarkAya = Preferences.Get("Bookmark", "49:11");
     private bool isDataLoaded;
+    private bool isLoading = true;
+    private string errorMessage;
     private bool preventScrollToFragment;
     public IEnumerable<Aya> Ayas { get; set; }
 
@@ -41,7 +43,7 @@
         Dialog.DisplayToast("Сўнги ўқиган оятингиз деб белгиланди");
     }
 
-    private async void Note(Aya aya)
+    private async void NoteAsync(Aya aya)
     {
         preventScrollToFragment = true; // Set the flag when Note is called
         if (aya.HasNote)
@@ -68,32 +70,42 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Ayas = await db.GetAyaListAsync(SuraId).ConfigureAwait(false);
-        SuraName = await db.GetSuraNameAsync(SuraId).ConfigureAwait(false);
+        //await LoadDataIfNeededAsync();
         NavigationManager.LocationChanged += OnLocationChanged;
-        isDataLoaded = true;
         await InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        Ayas = await db.GetAyaListAsync(SuraId).ConfigureAwait(false);
-        SuraName = await db.GetSuraNameAsync(SuraId).ConfigureAwait(false);
+        await LoadDataAsync();
         await base.OnParametersSetAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            Ayas = await db.GetAyaListAsync(SuraId).ConfigureAwait(false);
+            SuraName = await db.GetSuraNameAsync(SuraId).ConfigureAwait(false);
+            isDataLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to load data. Please try again later.";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!preventScrollToFragment)
+        if (!preventScrollToFragment && (firstRender || isDataLoaded))
         {
-            if (firstRender)
-            {
-                await ScrollToFragment();
-            }
-            else if (isDataLoaded)
-            {
-                await ScrollToFragment();
-            }
+            await ScrollToFragment();
         }
     }
 
@@ -123,6 +135,7 @@
 
             if (!string.IsNullOrEmpty(elementId))
             {
+                await Task.Delay(500);
                 await JsRuntime.InvokeVoidAsync("BlazorScrollToId", elementId);
             }
         }
@@ -136,57 +149,68 @@
 
     private void FilterAya()
     {
-        Ayas = Ayas.Where(a => a.Text.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase) || (a.Comment != null && a.Comment.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase)));
+        Ayas = Ayas.Where(a => a.Text.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase) || (a.Comment != null && a.Comment.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase))).ToList();
     }
 
     private async Task ShareAya(Aya aya)
     {
         await Share.Default.RequestAsync(new ShareTextRequest
-        {
-            Title = $"{SuraId}. сура {SuraName}, {aya.AyaId}. оят",
+            {
+                Title = $"{SuraId}. сура {SuraName}, {aya.AyaId}. оят",
                 Text = $"{aya.Arabic}\n{aya.Text}",
                 Uri = "https://www.musulmonlar.com"
-        });
+            });
     }
 
     private string ProcessComment(string comment)
     {
-    // Regular expression to match patterns like (Нисо 4/1, Аъроф 7/45, Юнус 10/3, Алақ 96/1) or (Юнус 12/50)
+        // Regular expression to match patterns like (Нисо 4/1, Аъроф 7/45, Юнус 10/3, Алақ 96/1) or (Юнус 12/50)
         var regex = new Regex(@"\(([^)]+)\)");
-        return regex.Replace(comment, match =>
+        try
         {
-            var parts = match.Groups[1].Value.Split(new[] { ',',';' }, StringSplitOptions.RemoveEmptyEntries);
-            var result = new List<string>();
-
-            foreach (var part in parts)
+            return regex.Replace(comment, match =>
             {
-                Debug.WriteLine($"Regex match part: {part}");
-                var subParts = part.Split(new[] { '/', ':' }, StringSplitOptions.RemoveEmptyEntries);
-                if (subParts.Length == 2)
+                var parts = match.Groups[1].Value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                var result = new List<string>();
+
+                foreach (var part in parts)
                 {
-                    var suraName = subParts[0].Trim().Split(' ')[0];
-                    var suraId = subParts[0].Trim().Split(' ')[1];
-                    var ayaPart = subParts[1].Trim().Split('-')[0]; // Handle ranges like 7-8 by taking only the first part
-                    if (int.TryParse(ayaPart, out int ayaId))
+                    //Debug.WriteLine($"Regex match part: {part}");
+                    var subParts = part.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (subParts.Length == 2 && subParts[0].Trim().Contains(' '))
                     {
-                        result.Add($"<a href=\"/AyaList?SuraId={suraId}#{ayaId}\">{part}</a>");
+                        // var suraName = subParts[0].Trim().Split(' ')[0];
+                        // var suraId = subParts[0].Trim().Split(' ')[1];
+                        var trimmedParts = subParts[0].Trim().Split(' ');
+                        var suraId = trimmedParts.Last();
+                        var suraName = string.Join(' ', trimmedParts.Take(trimmedParts.Length - 1));
+                        var ayaPart = subParts[1].Trim().Split('-')[0]; // Handle ranges like 7-8 by taking only the first part
+                        if (int.TryParse(ayaPart, out int ayaId))
+                        {
+                            result.Add($"<a href=\"/AyaList?SuraId={suraId}#{ayaId}\">{part}</a>");
+                        }
+                        else
+                        {
+                            result.Add(part);
+                        }
                     }
                     else
                     {
                         result.Add(part);
                     }
                 }
-                else
-                {
-                    result.Add(part);
-                }
-            }
 
-            return $"({string.Join(", ", result)})";
-        });
+                return $"({string.Join(", ", result)})";
+            });
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception);
+            Dialog.DisplayAlert("Comment parsing issue", $"An error occurred while processing the comment:\n{exception.Message}", "Close");
+            return "";
+        }
     }
 }
-
 <div class="text-white mb-3">
     @*  form-floating *@
     <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" type="search" placeholder="Оят Излаш" @bind="AyaFilter" @bind:event="oninput" @bind:after="FilterAya" aria-label="Оят Излаш">
@@ -200,50 +224,65 @@
         <span class="text-center arabic mx-auto fs-2 pb-2 pt-0">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
     }
 </div>
-@if (Ayas != null)
+@if (isLoading)
 {
-    @foreach (Aya aya in Ayas)
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger text-center">@errorMessage</div>
+}
+else
+{
+    @if (Ayas != null)
     {
-        <div class="row my-3" id="@aya.AyaId">
-            <div class="col">
-                <div class="card bg-light bg-gradient rounded-pill">
-                    <div class="card-body">
-                        <div class="vstack">
-                            <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
-                                <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.AyaId</span>
-                                <span title="оятни баҳам кўринг" aria-hidden="true" @onclick="async () => await ShareAya(aya)"><img src="share_white.png" width="28" height="28" alt="оятни баҳам кўринг" /></span>
-                                <span class="text-white" title="Оятни белгилаш" aria-hidden="true" @onclick="async () => await Favorite(aya)"><img src="@(aya.IsFavorite ? "heart_check_white.png" : "heart_plus_white.png")" width="28" height="28" alt="Оятни белгилаш" /></span>
-                                <span title="Эслатма қўшинг" aria-hidden="true" @onclick="() => Note(aya)"><img src="@(aya.HasNote ? "note_alt_white.png" : "add_notes_white.png")" width="28" height="28" alt="Эслатма қўшинг" /></span>
-                                <span class="me-3" title="Сўнг ўқилган оят деб белгилаш" aria-hidden="true" @onclick="() => Bookmark(aya)"><img src="@((SuraId + ":" + aya.AyaId == bookmarkAya) ? "bookmark_added_white.png" : "bookmark_add_white.png")" width="28" height="28" alt="Сўнг ўқилган оят деб белгилаш" /></span>
-                            </h5>
-                            <p class="arabic mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
-                            @if (string.IsNullOrEmpty(AyaFilter))
-                            {
-                                <p class="my-2" style=@textStyle>@aya.Text</p>
-                                if (aya.Comment != null)
+        @foreach (Aya aya in Ayas)
+        {
+            <div class="row my-3" id="@aya.AyaId">
+                <div class="col">
+                    <div class="card bg-light bg-gradient rounded-pill">
+                        <div class="card-body">
+                            <div class="vstack">
+                                <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white ">
+                                    <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.AyaId</span>
+                                    <span title="оятни баҳам кўринг" aria-hidden="true" @onclick="async () => await ShareAya(aya)"><img src="share_white.png" width="28" height="28" alt="оятни баҳам кўринг" /></span>
+                                    <span class="text-white" title="Оятни белгилаш" aria-hidden="true" @onclick="async () => await Favorite(aya)"><img src="@(aya.IsFavorite ? "heart_check_white.png" : "heart_plus_white.png")" width="28" height="28" alt="Оятни белгилаш" /></span>
+                                    <span title="Эслатма қўшинг" aria-hidden="true" @onclick="() => NoteAsync(aya)"><img src="@(aya.HasNote ? "note_alt_white.png" : "add_notes_white.png")" width="28" height="28" alt="Эслатма қўшинг" /></span>
+                                    <span class="me-3" title="Сўнг ўқилган оят деб белгилаш" aria-hidden="true" @onclick="() => Bookmark(aya)"><img src="@((SuraId + ":" + aya.AyaId == bookmarkAya) ? "bookmark_added_white.png" : "bookmark_add_white.png")" width="28" height="28" alt="Сўнг ўқилган оят деб белгилаш" /></span>
+                                </h5>
+                                <p class="arabic mb-0 me-2 " style=@arabicStyle>@aya.Arabic</p>
+                                @if (string.IsNullOrEmpty(AyaFilter))
                                 {
-                                    <hr />
-                                    <p style=@commentStyle>@((MarkupString)ProcessComment(aya.Comment))</p>
+                                    <p class="my-2" style=@textStyle>@aya.Text</p>
+                                    if (aya.Comment != null)
+                                    {
+                                        <hr />
+                                        <p style=@commentStyle>@((MarkupString)ProcessComment(aya.Comment))</p>
+                                    }
                                 }
-                            }
-                            else
-                            {
-                                <p class="my-2" style=@textStyle>
-                                    @((MarkupString)aya.Text.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
-                                </p>
-                                @if (aya.Comment != null)
+                                else
                                 {
-                                    <hr />
-                                    <p style=@commentStyle>
-                                        @((MarkupString)aya.Comment.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
+                                    <p class="my-2" style=@textStyle>
+                                        @((MarkupString)aya.Text.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
                                     </p>
+                                    @if (aya.Comment != null)
+                                    {
+                                        <hr />
+                                        <p style=@commentStyle>
+                                            @((MarkupString)aya.Comment.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
+                                        </p>
+                                    }
                                 }
-                            }
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        }
     }
+    <div id="BackToTop" class="Shown" @onclick="BackToTop"></div>
 }
-<div id="BackToTop" class="Shown" @onclick="BackToTop"></div>

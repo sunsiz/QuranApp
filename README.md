@@ -29,6 +29,16 @@ A comprehensive Quran study tool, designed for the Uzbek language, leveraging th
 
 - **Database Integration**: Integrates with an existing database for a rich, detailed, and accurate source of Quranic text, translations, and comments.
 
+## Update log
+
+### Version 1.0.1 (2024-10-10)
+* Fixed some errors in content.
+* improved UI and some features.
+
+### Version 1.0.0 (2024-04-27)
+* First release
+
+
 ## Screenshots
 
 ### Phone Screenshots

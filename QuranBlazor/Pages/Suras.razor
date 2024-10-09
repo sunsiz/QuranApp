@@ -1,6 +1,8 @@
 ﻿@page "/suras"
 @using QuranBlazor.Data
+@using System.Diagnostics
 @inject DbContext db
+@inject IJSRuntime JsRuntime
 
 @code {
     public IEnumerable<Sura> SuraList { get; set; }
@@ -16,7 +18,24 @@
     {
         SuraList = SuraList.Where(s => s.Name.Contains(SuraFilter, StringComparison.InvariantCultureIgnoreCase));
     }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JsRuntime.InvokeVoidAsync("restoreScrollPosition");
+            Debug.WriteLine("rendering again and try to scroll back");
 
+    // Attach the saveScrollPosition function to all anchor tags
+            await JsRuntime.InvokeVoidAsync("eval", @"
+                document.querySelectorAll('a').forEach(anchor => {
+                    anchor.addEventListener('click', (e) => {
+                        saveScrollPosition();
+                        console.log('Anchor clicked, scroll position saved.');
+                    });
+                });
+            ");
+        }
+    }
 }
 
 <div class="text-white mb-3">

@@ -1,11 +1,12 @@
 ﻿@page "/"
 @using Microsoft.Maui.Storage
+@using System.Web
 
 
 <div class="container-fluid my-3">
-    <form class="d-flex" action="search">
-        <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" placeholder="Излаш" aria-label="Search" name="KeyWord">
-        <button class="btn rounded-pill p-0 oi oi-magnifying-glass fw-bold primary-color" style="font-size: 36px; margin-left: -66px;" type="submit"></button>
+    <form class="d-flex" action="/Search" method="get" onsubmit="return encodeSearchTerm()">
+        <input class="form-control rounded-pill primary-color p-3" id="floatingSearch" placeholder="Излаш" aria-label="Излаш" name="KeyWord">
+        <button class="btn rounded-pill p-0 fw-bold primary-color" style="font-size: 36px; margin-left: -66px;" type="submit"><img src="search.png" width="48" height="48" class="mx-2" alt="search" /></button>
     </form>
 
     <div class="card my-3 rounded-pill card-bg-color">
@@ -14,9 +15,10 @@
                 var bookmark = Preferences.Get("Bookmark", "49:11");
                 if (!string.IsNullOrEmpty(bookmark))
                 {
-                    var suraId = bookmark.Split(':')[0];
-                    var ayaId = bookmark.Split(':')[1];
-                    <img src="bookmark_added_white.png" width="48px" height="48px" class="mx-2" alt="bookmark" />
+                    var parts = bookmark.Split(':');
+                    var suraId = parts[0];
+                    var ayaId = parts[1];
+                    <img src="bookmark_added_white.png" width="48" height="48" class="mx-2" alt="bookmark" />
                     <span class="fw-bold fs-4">@($"{suraId}. сура, {ayaId}. оят")</span>
                     <a href="AyaList?SuraId=@suraId#@ayaId" class="btn btn-light align-self-center ms-auto rounded-pill fw-bold">Ўқишни давом эттиринг</a>
                 }
@@ -33,7 +35,7 @@
             <a href="Suras" class="text-black">
                 <div class="row">
                     <div class="col d-flex align-self-center justify-content-center">
-                        <img src="quran.png" alt="Quran" width="150px" height="100px" />
+                        <img src="quran.png" alt="Quran" width="150" height="100" />
                     </div>
                     <div class="col d-flex align-self-center justify-content-center fw-bold fs-2">
                         Суралар
@@ -48,7 +50,7 @@
             <div class="card flex-fill align-items-center justify-content-center rounded-pill">
                 <a href="notes" class="card-text text-black fw-bold">
                     <div class="card-body" style="min-height: 180px;">
-                        <div class="text-center"><img src="note_alt.png" alt="notes" width="72px" height="72px" /></div>
+                        <div class="text-center"><img src="note_alt.png" alt="notes" width="72" height="72" /></div>
                         Қайдларингиз
                     </div>
                 </a>
@@ -58,7 +60,7 @@
             <div class="card flex-fill align-items-center justify-content-center rounded-pill">
                 <a href="favorites" class="card-text text-black fw-bold">
                     <div class="card-body" style="min-height: 180px;">
-                        <div class="text-center"><img src="heart_check.png" alt="target" width="72px" height="72px" /></div>
+                        <div class="text-center"><img src="heart_check.png" alt="target" width="72" height="72" /></div>
                         Сиз белгилаган оятлар
                     </div>
                 </a>
@@ -69,14 +71,24 @@
     <div class="card my-3 rounded-pill">
         <div class="card-body">
             <div class="d-flex justify-content-evenly">
-                <a href="https://www.facebook.com/groups/178024384287085/?ref=share&mibextid=SDPelY"><img src="facebook.svg" width="48px" height="48px" class="mx-2" alt="facebook" /></a>
+                <a href="https://www.facebook.com/groups/178024384287085/?ref=share&mibextid=SDPelY"><img src="facebook.svg" width="48" height="48" class="mx-2" alt="facebook" /></a>
                 @* <a href=""><img src="instagram.svg" width="32px" height="32px" class="mx-2" alt="instagram" /></a> *@
-                <a href="https://t.me/Quron_izidan"><img src="telegram.svg" width="48px" height="48px" class="mx-2" alt="telegram" /></a>
+                <a href="https://t.me/Quron_izidan"><img src="telegram.svg" width="48" height="48" class="mx-2" alt="telegram" /></a>
             </div>
         </div>
     </div>
 
 </div>
 @code {
-
+    private string EncodeSearchTerm(string term)
+    {
+        return HttpUtility.UrlEncode(term);
+    }
 }
+<script>
+    function encodeSearchTerm() {
+        var input = document.getElementById('floatingSearch');
+        input.value = encodeURIComponent(input.value).replace(/\./g, '%2E');
+        return true;
+    }
+</script>
