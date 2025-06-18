@@ -9,7 +9,7 @@ A comprehensive Quran study tool, designed for the Uzbek language, leveraging th
 
 ## Key Features
 
-- **Uzbek Translation**: Offers a comprehensive Quran translation in Uzbek, presented alongside the original Arabic text.
+- **Uzbek Translation**: Offers a comprehensive Quran translation in Uzbek with Cyrillic and Latin scripts, presented alongside the original Arabic text.
 
 - **Sura and Aya Listing**: Displays a detailed list of Suras and Ayas, each with its original Arabic text, translation, and additional comments.
 
@@ -18,6 +18,8 @@ A comprehensive Quran study tool, designed for the Uzbek language, leveraging th
 - **Note-Taking**: Enables users to take notes for each Aya, facilitating personal reflections and additional research.
 
 - **Customizable Font Size**: Provides an option to adjust the font size for enhanced readability.
+
+- **Language support**: Provides an option to use the app in Cyrillic or Latin scripts in the settings.
 
 - **Search Functionality**: Includes a search feature for exploring Aya translations and comments.
 
@@ -30,6 +32,10 @@ A comprehensive Quran study tool, designed for the Uzbek language, leveraging th
 - **Database Integration**: Integrates with an existing database for a rich, detailed, and accurate source of Quranic text, translations, and comments.
 
 ## Update log
+
+### Version 1.2 (2025-06-180)
+* Fixed some errors in content.
+* Add Latin script support alongside Cyrillic Uzbek scripts.
 
 ### Version 1.1 (2024-10-10)
 * Fixed some errors in content.
@@ -77,7 +83,7 @@ A comprehensive Quran study tool, designed for the Uzbek language, leveraging th
 
 - ~~**Note Existence Check**: To prevent duplication, the application will verify the existence of a note for a specific Aya before adding a new one.~~
 
-- **UI Optimization**: Future updates will focus on enhancing the user interface for a better user experience.
+- ~~**UI Optimization**: Future updates will focus on enhancing the user interface for a better user experience~~
 
 ## Potential Feature Ideas
 
