@@ -25,44 +25,47 @@
     private string errorMessage;
     private bool preventScrollToFragment;
     public IEnumerable<Aya> Ayas { get; set; }
-
+    private int _currentSuraIdForPage;
+    private string _previousFragment = string.Empty;
+    private bool _justUpdatedUrlFragment = false;
+    private IDisposable _locationChangingHandler;
 
     private async ValueTask Favorite(Aya aya)
     {
         preventScrollToFragment = true; // Set the flag when Favorite is called
         aya.IsFavorite = !aya.IsFavorite;
         await db.UpdateAyaAsync(aya);
-        Dialog.DisplayToast("Оят белгиланди");
+        Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят белгиланди"));
     }
 
-    private void Bookmark(Aya aya)
+    private async Task Bookmark(Aya aya)
     {
         preventScrollToFragment = true; // Set the flag when Bookmark is called
         Preferences.Set("Bookmark", aya.SuraId + ":" + aya.AyaId);
         bookmarkAya = aya.SuraId + ":" + aya.AyaId;
-        Dialog.DisplayToast("Сўнги ўқиган оятингиз деб белгиланди");
+        Dialog.DisplayToast(TransliterationService.GetDisplayText("Сўнги ўқиган оятингиз деб белгиланди"));
     }
 
-    private async void NoteAsync(Aya aya)
+    private async Task NoteAsync(Aya aya)
     {
         preventScrollToFragment = true; // Set the flag when Note is called
         if (aya.HasNote)
         {
-            var confirmed = await Dialog.DisplayAlert("Огоҳлантириш", "Бу оят учун аллақачон эслатма қўшилган, агар давом этсангиз эски эслатма ўчирилади, уни ўчириб ташламоқчимисиз?", "Ҳа, эскисини ўчириб ташланг", "Йўқ").ConfigureAwait(false);
+            var confirmed = await Dialog.DisplayAlert(TransliterationService.GetDisplayText("Огоҳлантириш"), TransliterationService.GetDisplayText("Бу оят учун аллақачон эслатма қўшилган, агар давом этсангиз эски эслатма ўчирилади, уни ўчириб ташламоқчимисиз?"), TransliterationService.GetDisplayText("Ҳа, эскисини ўчириб ташланг"), TransliterationService.GetDisplayText("Йўқ")).ConfigureAwait(false);
             if (!confirmed) return;
             aya.HasNote = false;
             await db.UpdateAyaAsync(aya).ConfigureAwait(false);
             var result = await db.DeleteNoteAsync(aya.AyaId, aya.SuraId);
-            if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Оят қайди ўчирилди"));
+            if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят қайди ўчирилди")));
         }
         else
         {
-            var note = await Dialog.DisplayPrompt("Эслатма қўшинг", "Оятга эслатма қўшинг", "Қўшиш", "Ёпиш").ConfigureAwait(false);
+            var note = await Dialog.DisplayPrompt(TransliterationService.GetDisplayText("Эслатма қўшинг"), TransliterationService.GetDisplayText("Оятга эслатма қўшинг"), TransliterationService.GetDisplayText("Қўшиш"), TransliterationService.GetDisplayText("Ёпиш")).ConfigureAwait(false);
             if (string.IsNullOrEmpty(note)) return;
             var result = await db.AddNoteAsync(aya.AyaId, aya.SuraId, SuraName, note);
             aya.HasNote = true;
             // await db.UpdateAyaAsync(aya).ConfigureAwait(false);
-            if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Оят эслатмаси қўшилди"));
+            if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят эслатмаси қўшилди")));
         }
 
     }
@@ -70,20 +73,36 @@
 
     protected override async Task OnInitializedAsync()
     {
-        //await LoadDataIfNeededAsync();
-        NavigationManager.LocationChanged += OnLocationChanged;
-        await InvokeAsync(StateHasChanged);
+        _currentSuraIdForPage = SuraId;
+        _previousFragment = new Uri(NavigationManager.Uri, UriKind.Absolute).Fragment;
+        NavigationManager.LocationChanged += HandleLocationChanged;
+        // Replaced OnBeforeInternalNavigation with RegisterLocationChangingHandler
+        _locationChangingHandler = NavigationManager.RegisterLocationChangingHandler(HandleBeforeInternalNavigation);
+        // NavigationManager.OnBeforeInternalNavigation += HandleBeforeInternalNavigation;
+        // No StateHasChanged needed here typically, OnParametersSetAsync will handle initial data load.
+        // //await LoadDataIfNeededAsync();
+        // NavigationManager.LocationChanged += OnLocationChanged;
+        // await InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        await LoadDataAsync();
-        await base.OnParametersSetAsync();
+        if (_currentSuraIdForPage != SuraId || !isDataLoaded) // Load if SuraId changed or data not yet loaded
+        {
+            isDataLoaded = false; // Reset flag if SuraId changes
+            await LoadDataAsync();
+            _currentSuraIdForPage = SuraId;
+        }
+        // No base.OnParametersSetAsync() call needed if fully handling logic here.
+        // await LoadDataAsync();
+        // await base.OnParametersSetAsync();
     }
 
     private async Task LoadDataAsync()
     {
         isLoading = true;
+        errorMessage = null; // Clear previous errors
+        isDataLoaded = false; // Reset data loaded flag
         try
         {
             Ayas = await db.GetAyaListAsync(SuraId).ConfigureAwait(false);
@@ -103,34 +122,132 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!preventScrollToFragment && (firstRender || isDataLoaded))
+        if (isDataLoaded && !isLoading) // Ensure data is loaded and not in a loading state
         {
-            await ScrollToFragment();
+            var uri = new Uri(NavigationManager.Uri, UriKind.Absolute);
+            var fragment = uri.Fragment;
+
+            if (!preventScrollToFragment)
+            {
+                if (!string.IsNullOrEmpty(fragment) && fragment.StartsWith('#'))
+                {
+                    Debug.WriteLine($"OnAfterRenderAsync: Attempting to scroll to fragment: {fragment}");
+                    await ScrollToFragment();
+                }
+                else
+                {
+                    Debug.WriteLine("OnAfterRenderAsync: No fragment, attempting to restore general scroll position (restoreScrollPosition).");
+                    await JsRuntime.InvokeVoidAsync("restoreScrollPosition");
+                }
+            }
+
+            if (firstRender)
+            {
+                // This JavaScript sets up an event listener on the window to save scroll position
+                // before the user navigates away from the page.
+                await JsRuntime.InvokeVoidAsync("eval", @"
+                    window.addEventListener('beforeunload', function() {
+                        saveScrollPosition();
+                        console.log('beforeunload: Scroll position saved.');
+                    });
+                ");
+                Debug.WriteLine("OnAfterRenderAsync: Attached beforeunload listener for saving scroll position.");
+            }
         }
+        preventScrollToFragment = false; // Reset flag after potential scroll operations
+    }
+
+    private async ValueTask HandleBeforeInternalNavigation(LocationChangingContext context)
+    {
+        var currentUri = new Uri(NavigationManager.Uri, UriKind.Absolute);
+        // Only act if we are on an AyaList page
+        if (currentUri.AbsolutePath.EndsWith("/ayalist", StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.WriteLine($"OnBeforeInternalNavigation from {NavigationManager.Uri} to {context.TargetLocation}. Attempting to set fragment for current URL if needed.");
+            // This JS call is fire-and-forget in terms of Blazor's sync lifecycle for this event.
+            // history.replaceState is synchronous, so it should be fine.
+            await JsRuntime.InvokeVoidAsync("updateUrlWithTopVisibleAyaFragmentForAyaList");
+            _justUpdatedUrlFragment = true; // Indicate that a fragment might have been set
+        }
+    }
+
+    private void HandleLocationChanged(object sender, LocationChangedEventArgs e)
+    {
+        var newUri = new Uri(e.Location, UriKind.Absolute);
+        var newFragment = newUri.Fragment;
+
+        var newQuery = QueryHelpers.ParseQuery(newUri.Query);
+        newQuery.TryGetValue("SuraId", out var newSuraIdStr);
+        int.TryParse(newSuraIdStr.ToString(), out int newSuraIdFromQuery);
+
+        // If SuraId is the same, but fragment changed, we need to re-render for OnAfterRenderAsync to pick up the scroll.
+        // If SuraId changes, OnParametersSetAsync will handle data loading, then OnAfterRenderAsync will scroll.
+        if (newSuraIdFromQuery == _currentSuraIdForPage && newFragment != _previousFragment)
+        {
+            Debug.WriteLine($"HandleLocationChanged: Fragment changed for SuraId {newSuraIdFromQuery}. Triggering StateHasChanged.");
+            InvokeAsync(StateHasChanged);
+        }
+
+        _previousFragment = newFragment;
     }
 
     public void Dispose()
     {
-        NavigationManager.LocationChanged -= OnLocationChanged;
+        NavigationManager.LocationChanged -= HandleLocationChanged;
+        _locationChangingHandler?.Dispose();
+        // NavigationManager.OnBeforeInternalNavigation -= HandleBeforeInternalNavigation;
     }
 
-    private async void OnLocationChanged(object sender, LocationChangedEventArgs e)
-    {
-        if (!preventScrollToFragment)
-        {
-            await ScrollToFragment();
-        }
-        preventScrollToFragment = false; // Reset the flag after each render
-    }
+    // private async void OnLocationChanged(object sender, LocationChangedEventArgs e)
+    // {
+    //     var newUri = new Uri(e.Location, UriKind.Absolute);
+    //     var oldUri = new Uri(NavigationManager.Uri, UriKind.Absolute);
+
+    //     // Check if it's an internal navigation (same page, different fragment or query for SuraId)
+    //     if (newUri.AbsolutePath == oldUri.AbsolutePath)
+    //     {
+    //         var newQuery = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(newUri.Query);
+    //         var oldQuery = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(oldUri.Query);
+
+    //         newQuery.TryGetValue("SuraId", out var newSuraIdStr);
+    //         oldQuery.TryGetValue("SuraId", out var oldSuraIdStr);
+
+    //         if (newSuraIdStr.ToString() == oldSuraIdStr.ToString() && newUri.Fragment != oldUri.Fragment && !string.IsNullOrEmpty(newUri.Fragment))
+    //         {
+    //             _isNavigatingInternally = true; // Navigating to a fragment within the same Sura
+    //         }
+    //         else if (newSuraIdStr.ToString() != oldSuraIdStr.ToString())
+    //         {
+    //             _isNavigatingInternally = true; // Navigating to a different Sura via comment link
+    //         }
+    //     }
+    //     if (!preventScrollToFragment)
+    //     {
+    //         await ScrollToFragment();
+    //     }
+    //     preventScrollToFragment = false; // Reset the flag after each render
+    //     if (!preventScrollToFragment && newUri.Fragment.StartsWith('#'))
+    //     {
+    //         // This will be handled by OnAfterRenderAsync after data is loaded for the new SuraId/fragment
+    //     }
+    //     else if (!preventScrollToFragment && !_isNavigatingInternally)
+    //     {
+    //         // If not scrolling to a fragment and not an internal navigation (e.g. browser back to a non-fragment URL)
+    //         // We might want to restore scroll. This is also handled in OnAfterRenderAsync.
+    //     }
+
+    //     // Data loading for new SuraId (if changed) is handled by OnParametersSetAsync.
+    //     // We need to ensure StateHasChanged is called if parameters don't trigger it automatically
+    //     // or if we need an immediate UI update based on location change.
+    //     await InvokeAsync(StateHasChanged); // Ensure UI updates if needed
+    // }
 
     private async Task ScrollToFragment()
     {
         var uri = new Uri(NavigationManager.Uri, UriKind.Absolute);
         var fragment = uri.Fragment;
-        if (fragment.StartsWith('#'))
+        if (!string.IsNullOrEmpty(fragment) && fragment.StartsWith('#'))
         {
-            // Handle text fragment (https://example.org/#test:~:text=foo)
-            // https://github.com/WICG/scroll-to-text-fragment/
             var elementId = fragment.Substring(1);
 
             if (!string.IsNullOrEmpty(elementId))
@@ -144,81 +261,134 @@
     {
         preventScrollToFragment = true; // Set the flag when BackToTop is called
         await JsRuntime.InvokeVoidAsync("BlazorScrollToTop");
+        StateHasChanged();
     }
-    string AyaFilter;
 
+    string AyaFilter;
     private void FilterAya()
     {
-        Ayas = Ayas.Where(a => a.Text.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase) || (a.Comment != null && a.Comment.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase))).ToList();
+        bool toLatin = Preferences.Get("UzbekScript", "Cyrillic") == "Latin";
+        string filterTerm = AyaFilter; // Assuming filter term matches current display script
+        Ayas = Ayas.Where(a =>
+        {
+            string text = toLatin ? TransliterationService.ToLatin(a.Text) : a.Text;
+            string comment = (a.Comment != null) ? (toLatin ? TransliterationService.ToLatin(a.Comment) : a.Comment) : null;
+            bool textMatch = text?.IndexOf(filterTerm, StringComparison.InvariantCultureIgnoreCase) >= 0;
+            bool commentMatch = comment?.IndexOf(filterTerm, StringComparison.InvariantCultureIgnoreCase) >= 0;
+            return textMatch || commentMatch;
+        }).ToList();
+
+        StateHasChanged(); // Notify Blazor that the data has changed
+        //a.Text.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase) || (a.Comment != null && a.Comment.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase))).ToList();
+    }
+
+    private string StripHtml(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return string.Empty;
+        // First, remove HTML tags
+        var noHtmlTags = Regex.Replace(input, "<.*?>", string.Empty);
+        // Then, decode HTML entities
+        return System.Net.WebUtility.HtmlDecode(noHtmlTags);
     }
 
     private async Task ShareAya(Aya aya)
     {
+        string suraNameDisplay = TransliterationService.GetDisplayText(SuraName);
+        string ayaTextDisplay = TransliterationService.GetDisplayText(aya.Text);
+        string plainCommentDisplay = TransliterationService.GetDisplayText(StripHtml(aya.Comment));
+        string titlePart1 = TransliterationService.GetDisplayText("Оят:");
+        string titlePart2 = TransliterationService.GetDisplayText("сураси,");
+        string titlePart3 = TransliterationService.GetDisplayText(". ояти");
+        string title = $"{titlePart1} {suraNameDisplay} {titlePart2} {aya.AyaId}{titlePart3}";//$"Оят: {SuraName} сураси, {aya.AyaId}. ояти";
+        //string plainComment=StripHtml(aya.Comment);
         await Share.Default.RequestAsync(new ShareTextRequest
             {
-                Title = $"{SuraId}. сура {SuraName}, {aya.AyaId}. оят",
-                Text = $"{aya.Arabic}\n{aya.Text}",
+                Title = title,
+                Text = $"{title}\n{aya.Arabic}\n{ayaTextDisplay}\n{plainCommentDisplay}",
                 Uri = "https://www.musulmonlar.com"
             });
     }
 
-    private string ProcessComment(string comment)
+
+    private string ProcessComment(string cyrillicCommentFromDb)
     {
-        // Regular expression to match patterns like (Нисо 4/1, Аъроф 7/45, Юнус 10/3, Алақ 96/1) or (Юнус 12/50)
+        if (string.IsNullOrEmpty(cyrillicCommentFromDb)) return string.Empty;
+
         var regex = new Regex(@"\(([^)]+)\)");
+        bool toLatin = Preferences.Get("UzbekScript", "Cyrillic") == "Latin";
+        var resultHtml = new System.Text.StringBuilder();
+        int lastIndex = 0;
+
         try
         {
-            return regex.Replace(comment, match =>
+            foreach (Match match in regex.Matches(cyrillicCommentFromDb))
             {
-                var parts = match.Groups[1].Value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
-                var result = new List<string>();
+                // Append the text segment before this match, transliterated
+                string textBeforeMatch = cyrillicCommentFromDb.Substring(lastIndex, match.Index - lastIndex);
+                resultHtml.Append(toLatin ? TransliterationService.ToLatin(textBeforeMatch) : textBeforeMatch);
 
-                foreach (var part in parts)
+                // Process the matched part (the link pattern)
+                // match.Groups[1].Value is the Cyrillic text inside parentheses
+                var commentPartsInParentheses = match.Groups[1].Value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                var processedLinkParts = new List<string>();
+
+                foreach (var partContentCyrillic in commentPartsInParentheses) // partContent is Cyrillic, e.g., "Мўминун 23:70"
                 {
-                    //Debug.WriteLine($"Regex match part: {part}");
-                    var subParts = part.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    var trimmedCyrillicPart = partContentCyrillic.Trim(); // Still Cyrillic
+
+                    // This is the text that will be displayed for the link. Convert it to the target script.
+                    string linkDisplayTextInTargetScript = toLatin ? TransliterationService.ToLatin(trimmedCyrillicPart) : trimmedCyrillicPart;
+
+                    // Parse SuraId and AyaId from the original Cyrillic trimmedPart
+                    var subParts = trimmedCyrillicPart.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
                     if (subParts.Length == 2 && subParts[0].Trim().Contains(' '))
                     {
-                        // var suraName = subParts[0].Trim().Split(' ')[0];
-                        // var suraId = subParts[0].Trim().Split(' ')[1];
-                        var trimmedParts = subParts[0].Trim().Split(' ');
-                        var suraId = trimmedParts.Last();
-                        var suraName = string.Join(' ', trimmedParts.Take(trimmedParts.Length - 1));
-                        var ayaPart = subParts[1].Trim().Split('-')[0]; // Handle ranges like 7-8 by taking only the first part
-                        if (int.TryParse(ayaPart, out int ayaId))
+                        var suraDetailsParts = subParts[0].Trim().Split(' ');
+                        var suraIdStr = suraDetailsParts.Last();
+                        var ayaNumStr = subParts[1].Trim().Split('-')[0];
+
+                        if (int.TryParse(suraIdStr, out int parsedSuraId) && int.TryParse(ayaNumStr, out int parsedAyaId))
                         {
-                            result.Add($"<a href=\"/AyaList?SuraId={suraId}#{ayaId}\">{part}</a>");
+                            // Construct the link with ASCII HTML tags and the already-scripted linkDisplayText
+                            processedLinkParts.Add($"<a href=\"/AyaList?SuraId={parsedSuraId}#{parsedAyaId}\">{linkDisplayTextInTargetScript}</a>");
                         }
                         else
                         {
-                            result.Add(part);
+                            processedLinkParts.Add(linkDisplayTextInTargetScript); // Fallback if parsing fails
                         }
                     }
                     else
                     {
-                        result.Add(part);
+                        processedLinkParts.Add(linkDisplayTextInTargetScript); // Fallback if not in "SuraName SuraId:AyaId" format
                     }
                 }
+                resultHtml.Append($"({string.Join(", ", processedLinkParts)})");
 
-                return $"({string.Join(", ", result)})";
-            });
+                lastIndex = match.Index + match.Length;
+            }
+
+            // Append the rest of the string (if any) after the last match, transliterated
+            string remainingText = cyrillicCommentFromDb.Substring(lastIndex);
+            resultHtml.Append(toLatin ? TransliterationService.ToLatin(remainingText) : remainingText);
+
+            return resultHtml.ToString();
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception);
-            Dialog.DisplayAlert("Comment parsing issue", $"An error occurred while processing the comment:\n{exception.Message}", "Close");
-            return "";
+            Console.Error.WriteLine($"Error processing comment in AyaList: {exception.Message}");
+            // Fallback: return original comment, transliterated to the target script if possible (assuming it's plain text)
+            return toLatin ? TransliterationService.ToLatin(cyrillicCommentFromDb) : cyrillicCommentFromDb;
         }
     }
 }
 <div class="text-white mb-3">
     @*  form-floating *@
-    <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" type="search" placeholder="Оят Излаш" @bind="AyaFilter" @bind:event="oninput" @bind:after="FilterAya" aria-label="Оят Излаш">
+    <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" type="search" placeholder="@TransliterationService.GetDisplayText(" Оят Излаш")" @bind="AyaFilter" @bind:event="oninput" @bind:after="FilterAya" aria-label="Оят Излаш">
     @* <label class="primary-color" for="floatingSearch">Оят Излаш</label> *@
 </div>
 
 <div class="text-center vstack shadow-lg bg-light bg-gradient rounded-pill" id="surahead">
-    <h3 class="pt-3 pb-0 text-black">@SuraId. @SuraName сураси</h3>
+    <h3 class="pt-3 pb-0 text-black">@SuraId. @TransliterationService.GetDisplayText(SuraName) @TransliterationService.GetDisplayText(" сураси")</h3>
     @if (SuraId is not (1 or 9))
     {
         <span class="text-center arabic mx-auto fs-2 pb-2 pt-0">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
@@ -257,7 +427,7 @@ else
                                 <p class="arabic mb-0 me-2 " style=@arabicStyle>@aya.Arabic</p>
                                 @if (string.IsNullOrEmpty(AyaFilter))
                                 {
-                                    <p class="my-2" style=@textStyle>@aya.Text</p>
+                                    <p class="my-2" style=@textStyle>@((MarkupString)TransliterationService.GetDisplayText(aya.Text))</p>
                                     if (aya.Comment != null)
                                     {
                                         <hr />
@@ -267,13 +437,13 @@ else
                                 else
                                 {
                                     <p class="my-2" style=@textStyle>
-                                        @((MarkupString)aya.Text.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
+                                        @((MarkupString)TransliterationService.GetDisplayText(aya.Text).Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
                                     </p>
                                     @if (aya.Comment != null)
                                     {
                                         <hr />
                                         <p style=@commentStyle>
-                                            @((MarkupString)aya.Comment.Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
+                                            @((MarkupString)ProcessComment(aya.Comment).Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
                                         </p>
                                     }
                                 }

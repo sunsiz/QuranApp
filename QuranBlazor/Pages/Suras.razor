@@ -40,7 +40,7 @@
 
 <div class="text-white mb-3">
     @*  form-floating *@
-    <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" type="search" placeholder="Сура Излаш" @bind="SuraFilter" @bind:event="oninput" @bind:after="FilterSura" aria-label="Сура Излаш">
+    <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" type="search" placeholder="@TransliterationService.GetDisplayText(" Сура Излаш")" @bind="SuraFilter" @bind:event="oninput" @bind:after="FilterSura" aria-label="Сура Излаш">
     @* <label class="primary-color" for="floatingSearch">Сура Излаш</label> *@
 </div>
 @if (SuraList != null)
@@ -54,9 +54,9 @@
                         <a href="AyaList?SuraId=@sura.Id&SuraName=@sura.Name" class="stretched-link text-black">
                             <div class="hstack">
                                 <div class="vstack">
-                                    <h5 class="card-title mb-0">@sura.Id. @sura.Name</h5>
+                                    <h5 class="card-title mb-0">@sura.Id. @TransliterationService.GetDisplayText(sura.Name)</h5>
                                     @{
-                                        var revealed = sura.RevealedIn ? "Макка" : "Мадина";
+                                        var revealed = sura.RevealedIn ? @TransliterationService.GetDisplayText("Мадина") : @TransliterationService.GetDisplayText("Макка");
                                     }
                                     <p class="card-text">@* <span class="my-0">@sura.Meaning</span> -  *@@revealed (@sura.AyaCount)</p>
                                 </div>

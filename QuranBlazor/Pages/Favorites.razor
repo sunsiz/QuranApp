@@ -5,7 +5,7 @@
 @inject DialogService Dialog
 
 <div class="text-center mb-3">
-    <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white"><img src="heart_check_white.png" width="48" height="48" class="mx-2" /> Белгиланган оятлар</h3>
+    <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white"><img src="heart_check_white.png" width="48" height="48" class="mx-2" /> @TransliterationService.GetDisplayText("Белгиланган оятлар")</h3>
 </div>
 @if (Ayas != null)
 {
@@ -17,9 +17,9 @@
                     <div class="card-body py-1">
                         <div class="hstack">
                             <div class="vstack">
-                                <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="text-black" title="Оятга ўтиш">
-                                    <h3 class="card-title mb-0">@($"{aya.SuraId}. {aya.SuraName}, {aya.AyaId} оят")</h3>
-                                    <h4 class="card-body p-0 fs-6">@aya.Text.Substring(0, Math.Min(aya.Text.Length, 50))</h4>
+                                <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="text-black" title="@TransliterationService.GetDisplayText("Оятга ўтиш")">
+                                    <h3 class="card-title mb-0">@aya.SuraId. @TransliterationService.GetDisplayText(aya.SuraName), @aya.AyaId @TransliterationService.GetDisplayText("оят")</h3>
+                                    <h4 class="card-body p-0 fs-6">@TransliterationService.GetDisplayText(aya.Text.Substring(0, Math.Min(aya.Text.Length, 50)))</h4>
                                 </a>
                             </div>
                             <span class="p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="() => DeleteFavorite(aya)"><img src="heart_minus_black.png" width="48" height="48" class="mx-2" /></span>@* oi oi-trash *@
@@ -48,13 +48,13 @@
             {
                 var removed = Ayas.Remove(Ayas.Find(a => a.AyaId == aya.AyaId && a.SuraId == aya.SuraId));
                 Debug.WriteLine($"Delete favorite aya result is {removed}");
-                MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast("Белгиланган оят олиб ташланди"));
+                MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Белгиланган оят олиб ташланди")));
             }
         }
     }
 
     public Task<bool> DisplayConfirm(string title, string message, string accept, string cancel)
     {
-        return Application.Current.MainPage.DisplayAlert(title, message, accept, cancel);
+        return Application.Current.MainPage.DisplayAlert(TransliterationService.GetDisplayText(title), TransliterationService.GetDisplayText(message), TransliterationService.GetDisplayText(accept), TransliterationService.GetDisplayText(cancel));
     }
 }

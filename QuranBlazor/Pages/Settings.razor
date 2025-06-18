@@ -19,25 +19,66 @@
         get => Preferences.Get("CommentFontSize", 12);
         set => Preferences.Set("CommentFontSize", value);
     }
+
+    private string UzbekScript
+    {
+        get => Preferences.Get("UzbekScript", "Cyrillic");
+        set
+        {
+            if (Preferences.Get("UzbekScript", "Cyrillic") != value)
+            {
+                Preferences.Set("UzbekScript", value);
+                InvokeAsync(StateHasChanged); // Re-render this page
+                TransliterationService.NotifyScriptChanged(); // Notify other components
+            }
+        }
+    }
+    // Helper for display text to avoid direct service call in markup if it gets complex
+    private string GetDisplayText(string cyrillicText)
+    {
+        if (string.IsNullOrEmpty(cyrillicText)) return cyrillicText;
+        return UzbekScript == "Latin"
+               ? TransliterationService.ToLatin(cyrillicText)
+               : cyrillicText;
+    }
+    // Handler for radio button changes
+    private void OnScriptChanged(ChangeEventArgs e)
+    {
+        UzbekScript = e.Value.ToString();
+    }
+    // private void SetScript(string script)
+    // {
+    //     UzbekScript = script;
+    // }
 }
 <div class="mx-0">
     <div class="card bg-light bg-gradient rounded-pill">
-        <h3 class="px-5 py-2 shadow-lg w-100 card-bg-color bg-gradient rounded-pill card-title text-black fw-bold"><img src="settings_black.png" width="48" height="48" class="mx-2" /> Созламалар</h3>@*  oi oi-cog *@
+        <h3 class="px-5 py-2 shadow-lg w-100 card-bg-color bg-gradient rounded-pill card-title text-black fw-bold"><img src="settings_black.png" width="48" height="48" class="mx-2" /> @TransliterationService.GetDisplayText("Созламалар")</h3>@*  oi oi-cog *@
         <div class="card-body">
             <div class="vstack border-3 p-2 m-2 my-3 rounded-pill bg-light bg-gradient shadow-sm">
-                <h5 class="card-title hstack gap-3 text-black">Арабча матн ҳажми</h5>
+                <h5 class="card-title hstack gap-3 text-black">@GetDisplayText("Ёзув тури")</h5>
+                <div class="btn-group w-100" role="group" aria-label="Script selection">
+                    <input type="radio" class="btn-check" name="script" id="scriptCyrillic" value="Cyrillic" autocomplete="off" checked="@(UzbekScript == "Cyrillic")" @onchange="OnScriptChanged">
+                    <label class="btn btn-outline-primary rounded-start-pill" for="scriptCyrillic">Кириллча</label>
+
+                    <input type="radio" class="btn-check" name="script" id="scriptLatin" value="Latin" autocomplete="off" checked="@(UzbekScript == "Latin")" @onchange="OnScriptChanged">
+                    <label class="btn btn-outline-primary rounded-end-pill" for="scriptLatin">Lotincha</label>
+                </div>
+            </div>
+            <div class="vstack border-3 p-2 m-2 my-3 rounded-pill bg-light bg-gradient shadow-sm">
+                <h5 class="card-title hstack gap-3 text-black">@TransliterationService.GetDisplayText("Арабча матн ҳажми")</h5>
                 <input type="range" class="form-range" min="10" max="36" step="1" id="arabicRange" @bind-value="@ArabicFontSize">
                 <label style="font-size: @(ArabicFontSize)px; direction: rtl;" class="form-label arabic">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</label>
             </div>
             <div class="vstack border-3 p-2 m-2 m-3 bg-gradient bg-light rounded-pill shadow-sm">
-                <h5 class="card-title hstack gap-3 text-black">Шрифт ҳажми</h5>
+                <h5 class="card-title hstack gap-3 text-black">@TransliterationService.GetDisplayText("Шрифт ҳажми")</h5>
                 <input type="range" class="form-range" min="12" max="28" step="1" id="translateRange" @bind-value="@TranslateFontSize">
-                <label style="font-size: @(TranslateFontSize)px;" class="form-label">Марҳамати чексиз ва яхшилик қилувчи – Аллоҳ номи билан.</label>
+                <label style="font-size: @(TranslateFontSize)px;" class="form-label">@TransliterationService.GetDisplayText("Марҳамати чексиз ва яхшилик қилувчи – Аллоҳ номи билан.")</label>
             </div>
             <div class="vstack border-3 p-2 m-2 my-3 bg-gradient bg-light rounded-pill shadow-sm">
-                <h5 class="card-title hstack gap-3 text-black">Изоҳ матн ҳажми</h5>
+                <h5 class="card-title hstack gap-3 text-black">@TransliterationService.GetDisplayText("Изоҳ матн ҳажми")</h5>
                 <input type="range" class="form-range" min="6" max="24" step="1" id="commentRange" @bind-value="@CommentFontSize">
-                <label style="font-size: @(CommentFontSize)px;" class="form-label">«Раҳмон ва Раҳим» калималари «раҳмат» (رحمة) ўзагидан турланган сифатлардир.</label>
+                <label style="font-size: @(CommentFontSize)px;" class="form-label">@TransliterationService.GetDisplayText("«Раҳмон ва Раҳим» калималари «раҳмат» (رحمة) ўзагидан турланган сифатлардир.")</label>
             </div>
         </div>
     </div>

@@ -1,5 +1,4 @@
 ﻿@page "/search"
-@using QuranBlazor.Data
 @using System.Text.RegularExpressions
 @using System.Web
 @inject DbContext db
@@ -9,67 +8,125 @@
     [Parameter]
     [SupplyParameterFromQuery]
     public string KeyWord { get; set; }
+    private string _effectiveKeyword;
+    private string _decodedKeyWordForDisplay;
 
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        _decodedKeyWordForDisplay = !string.IsNullOrEmpty(KeyWord) ? HttpUtility.UrlDecode(KeyWord) : string.Empty;
+
+        if (!string.IsNullOrEmpty(_decodedKeyWordForDisplay))
+        {
+            // For DB search, always convert to lowercase Cyrillic
+            // First, determine if the input is likely Latin to decide if ToCyrillic is needed
+            bool isInputLatin = TransliterationService.IsLatinScriptSelected || TransliterationService.IsPotentiallyLatin(_decodedKeyWordForDisplay); // Consider current script or guess
+            if (isInputLatin)
+            {
+                _effectiveKeyword = TransliterationService.ToCyrillic(_decodedKeyWordForDisplay);
+            }
+            else // Assumed Cyrillic input
+            {
+                _effectiveKeyword = _decodedKeyWordForDisplay;
+            }
+        }
+        else
+        {
+            _effectiveKeyword = string.Empty;
+        }
+        _ayas = null; // Reset to trigger re-fetch
+        _highlightRegex = null; // Reset regex
+    }
     private IEnumerable<Aya> _ayas;
-    private IEnumerable<Aya> Ayas => _ayas ??= db.GetSearchResult(KeyWord);
+    private IEnumerable<Aya> Ayas => _ayas ??= db.GetSearchResult(_effectiveKeyword);
     private Regex _highlightRegex;
     private string arabicStyle => $"font-size:{Preferences.Get("ArabicFontSize", 16)}px";
     private string textStyle => $"font-size:{Preferences.Get("TranslateFontSize", 14)}px";
     private string commentStyle => $"font-size:{Preferences.Get("CommentFontSize", 12)}px;margin-bottom:0px";
 
-    protected override void OnInitialized()
+    private string HighlightKeyword(string input, bool isHtml = false)
     {
-        KeyWord = HttpUtility.UrlDecode(KeyWord);
-    }
+        // Highlight against the original KeyWord (as typed by user),
+        // but on the potentially transliterated 'input' text.
+        // If input is HTML (from ProcessComment), do NOT transliterate again!
+        string textToHighlight = isHtml ? input : TransliterationService.GetDisplayText(input);
+        //string textToHighlight = TransliterationService.GetDisplayText(input);// Text in current display script
+        string keywordToMatchInDisplayScript = TransliterationService.GetDisplayText(_decodedKeyWordForDisplay); // User's keyword in current display script
+        //string userTypedKeyword = HttpUtility.UrlDecode(KeyWord); // The keyword as user typed it
 
-    private string HighlightKeyword(string input)
-    {
-        if (_highlightRegex == null)
+        if (string.IsNullOrEmpty(textToHighlight) || string.IsNullOrEmpty(keywordToMatchInDisplayScript)) return textToHighlight;
+        // Use userTypedKeyword for highlighting, as it's what they see and expect to be highlighted.
+        var escapedKeyword = Regex.Escape(keywordToMatchInDisplayScript);
+        // _highlightRegex should be based on userTypedKeyword
+
+        if (_highlightRegex == null || _highlightRegex.ToString() != escapedKeyword) // Recreate if keyword changed
         {
-            var escapedKeyword = Regex.Escape(KeyWord);
-            _highlightRegex = new Regex(escapedKeyword, RegexOptions.IgnoreCase);
+            _highlightRegex = new Regex(escapedKeyword, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         }
-        return _highlightRegex.Replace(input, m => $"<span class='search-term'>{m.Value}</span>");
+        return _highlightRegex.Replace(textToHighlight, m => $"<span class='search-term'>{m.Value}</span>");
     }
     private string ProcessComment(string comment)
     {
+        if (string.IsNullOrEmpty(comment)) return string.Empty;
         // Regular expression to match patterns like (Нисо 4/1, Аъроф 7/45, Юнус 10/3, Алақ 96/1) or (Юнус 12/50)
         var regex = new Regex(@"\(([^)]+)\)", RegexOptions.Compiled);
+        bool toLatin = Preferences.Get("UzbekScript", "Cyrillic") == "Latin";
+        var resultHtml = new System.Text.StringBuilder();
+        int lastIndex = 0;
+
         try
         {
-            return regex.Replace(comment, match =>
+            foreach (Match match in regex.Matches(comment))
             {
-                var parts = match.Groups[1].Value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
-                var result = new List<string>();
+                // Append the text segment before this match, transliterated
+                string textBeforeMatch = comment.Substring(lastIndex, match.Index - lastIndex);
+                resultHtml.Append(toLatin ? TransliterationService.ToLatin(textBeforeMatch) : textBeforeMatch);
 
-                foreach (var part in parts)
+                // Process the matched part (the link pattern)
+                var commentPartsInParentheses = match.Groups[1].Value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                var processedLinkParts = new List<string>();
+
+                foreach (var partContentCyrillic in commentPartsInParentheses)
                 {
-                    //Debug.WriteLine($"Regex match part: {part}");
-                    var subParts = part.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    var trimmedCyrillicPart = partContentCyrillic.Trim();
+                    string linkDisplayTextInTargetScript = toLatin ? TransliterationService.ToLatin(trimmedCyrillicPart) : trimmedCyrillicPart;
+
+                    var subParts = trimmedCyrillicPart.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
                     if (subParts.Length == 2 && subParts[0].Trim().Contains(' '))
                     {
-                        // var suraName = subParts[0].Trim().Split(' ')[0];
-                        // var suraId = subParts[0].Trim().Split(' ')[1];
-                        var trimmedParts = subParts[0].Trim().Split(' ');
-                        var suraId = trimmedParts.Last();
-                        // var suraName = string.Join(' ', trimmedParts.Take(trimmedParts.Length - 1));
-                        var ayaPart = subParts[1].Trim().Split('-')[0]; // Handle ranges like 7-8 by taking only the first part
-                        result.Add(int.TryParse(ayaPart, out int ayaId) ? $"<a href=\"/AyaList?SuraId={suraId}#{ayaId}\">{part}</a>" : part);
+                        var suraDetailsParts = subParts[0].Trim().Split(' ');
+                        var suraIdStr = suraDetailsParts.Last();
+                        var ayaNumStr = subParts[1].Trim().Split('-')[0];
+
+                        if (int.TryParse(suraIdStr, out int parsedSuraId) && int.TryParse(ayaNumStr, out int parsedAyaId))
+                        {
+                            processedLinkParts.Add($"<a href=\"/AyaList?SuraId={parsedSuraId}#{parsedAyaId}\">{linkDisplayTextInTargetScript}</a>");
+                        }
+                        else
+                        {
+                            processedLinkParts.Add(linkDisplayTextInTargetScript);
+                        }
                     }
                     else
                     {
-                        result.Add(part);
+                        processedLinkParts.Add(linkDisplayTextInTargetScript);
                     }
                 }
+                resultHtml.Append($"({string.Join(", ", processedLinkParts)})");
 
-                return $"({string.Join(", ", result)})";
-            });
+                lastIndex = match.Index + match.Length;
+            }
+
+            // Append the rest of the string (if any) after the last match, transliterated
+            string remainingText = comment.Substring(lastIndex);
+            resultHtml.Append(toLatin ? TransliterationService.ToLatin(remainingText) : remainingText);
+
+            return resultHtml.ToString();
         }
         catch (Exception exception)
         {
-            Console.WriteLine($"Error processing comment: {exception.Message}");
-            // Dialog.DisplayAlert("Comment parsing issue", $"An error occurred while processing the comment:\n{exception.Message}", "Close");
-            return "";
+            Console.WriteLine($"Error processing comment in Search: {exception.Message}");
+            return toLatin ? TransliterationService.ToLatin(comment) : comment;
         }
     }
 }
@@ -81,14 +138,14 @@
         @* <label class="text-danger-emphasis my-3">"@KeyWord" is not valid search keyword, please try again.</label> *@
         <div class="mx-1 shadow-lg bg-light bg-gradient rounded-pill text-center">
             <form class="d-flex" action="/Search" method="get" onsubmit="return encodeSearchTerm()">
-                <input class="form-control rounded-pill primary-color p-3" id="floatingSearch" placeholder="Излаш" aria-label="Излаш" name="KeyWord">
+                <input class="form-control rounded-pill primary-color p-3" id="floatingSearch" placeholder="@TransliterationService.GetDisplayText("Излаш")" aria-label="Излаш" name="KeyWord">
                 <button class="btn rounded-pill p-0 fw-bold primary-color" style="font-size: 36px; margin-left: -66px;" type="submit"><img src="search.png" width="48" height="48" class="mx-2" alt="search" /></button>
             </form>
         </div>
     }
     else
     {
-        <div class="mx-1"><h3 class="p-3 shadow-lg w-100 bg-light bg-gradient rounded-pill text-center">Излаш натижалари: "@KeyWord" @Ayas.Count() та жойда топилди. </h3></div>
+        <div class="mx-1"><h3 class="p-3 shadow-lg w-100 bg-light bg-gradient rounded-pill text-center">@TransliterationService.GetDisplayText("Излаш натижалари:") "@TransliterationService.GetDisplayText(_decodedKeyWordForDisplay)" @Ayas.Count() @TransliterationService.GetDisplayText("та жойда топилди.")</h3></div>
     }
     @if (Ayas != null)
     {
@@ -101,15 +158,15 @@
                             <div class="vstack">
                                 <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
                                     <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@($"{aya.SuraId}:{aya.AyaId}")</span>
-                                    <a class="oi oi-share ms-auto me-3 text-white stretched-link" title="Оятга ўтиш" href="AyaList?SuraId=@aya.SuraId#@aya.AyaId"></a>@* &SuraName=@db.GetSuraName(aya.SuraId) *@
+                                    <a class="oi oi-share ms-auto me-3 text-white stretched-link" title="@TransliterationService.GetDisplayText("Оятга ўтиш")" href="AyaList?SuraId=@aya.SuraId#@aya.AyaId"></a>@* &SuraName=@db.GetSuraName(aya.SuraId) *@
                                 </h5>
                                 <p class="arabic fs-3 fw-bold mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
-                                <p class="my-2" style=@textStyle>@((MarkupString)HighlightKeyword(aya.Text))</p><hr />
+                                <p class="my-2" style=@textStyle>@((MarkupString)HighlightKeyword(aya.Text,false))</p><hr />
                                 <div>
                                     @if (aya.Comment != null)
                                     {
                                         <hr />
-                                        <p style=@commentStyle>@((MarkupString)HighlightKeyword(ProcessComment(aya.Comment)))</p>
+                                        <p style=@commentStyle>@((MarkupString)HighlightKeyword(ProcessComment(aya.Comment),true))</p>
                                     }
                                 </div>
                             </div>

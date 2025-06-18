@@ -5,7 +5,7 @@
 
 <div class="container-fluid my-3">
     <form class="d-flex" action="/Search" method="get" onsubmit="return encodeSearchTerm()">
-        <input class="form-control rounded-pill primary-color p-3" id="floatingSearch" placeholder="Излаш" aria-label="Излаш" name="KeyWord">
+        <input class="form-control rounded-pill primary-color p-3" id="floatingSearch" placeholder="@TransliterationService.GetDisplayText("Излаш")" aria-label="Излаш" name="KeyWord">
         <button class="btn rounded-pill p-0 fw-bold primary-color" style="font-size: 36px; margin-left: -66px;" type="submit"><img src="search.png" width="48" height="48" class="mx-2" alt="search" /></button>
     </form>
 
@@ -19,12 +19,12 @@
                     var suraId = parts[0];
                     var ayaId = parts[1];
                     <img src="bookmark_added_white.png" width="48" height="48" class="mx-2" alt="bookmark" />
-                    <span class="fw-bold fs-4">@($"{suraId}. сура, {ayaId}. оят")</span>
-                    <a href="AyaList?SuraId=@suraId#@ayaId" class="btn btn-light align-self-center ms-auto rounded-pill fw-bold">Ўқишни давом эттиринг</a>
+                    <span class="fw-bold fs-4">@suraId. @TransliterationService.GetDisplayText("сура"), @ayaId. @TransliterationService.GetDisplayText("оят")</span>
+                    <a href="AyaList?SuraId=@suraId#@ayaId" class="btn btn-light align-self-center ms-auto rounded-pill fw-bold">@TransliterationService.GetDisplayText("Ўқишни давом эттиринг")</a>
                 }
                 else
                 {
-                    <a href="#" class="btn btn-light disabled ms-auto rounded-pill fw-bold">Ўқишни давом эттиринг</a>
+                    <a href="#" class="btn btn-light disabled ms-auto rounded-pill fw-bold">@TransliterationService.GetDisplayText("Ўқишни давом эттиринг")</a>
                 }
             }
         </div>
@@ -38,7 +38,7 @@
                         <img src="quran.png" alt="Quran" width="150" height="100" />
                     </div>
                     <div class="col d-flex align-self-center justify-content-center fw-bold fs-2">
-                        Суралар
+                        @TransliterationService.GetDisplayText("Суралар")
                     </div>
                 </div>
             </a>
@@ -51,7 +51,7 @@
                 <a href="notes" class="card-text text-black fw-bold">
                     <div class="card-body" style="min-height: 180px;">
                         <div class="text-center"><img src="note_alt.png" alt="notes" width="72" height="72" /></div>
-                        Қайдларингиз
+                        @TransliterationService.GetDisplayText("Қайдларингиз")
                     </div>
                 </a>
             </div>
@@ -61,7 +61,7 @@
                 <a href="favorites" class="card-text text-black fw-bold">
                     <div class="card-body" style="min-height: 180px;">
                         <div class="text-center"><img src="heart_check.png" alt="target" width="72" height="72" /></div>
-                        Сиз белгилаган оятлар
+                        @TransliterationService.GetDisplayText("Сиз белгилаган оятлар")
                     </div>
                 </a>
             </div>

@@ -5,8 +5,8 @@
 <div class="top-row ps-3 navbar sticky-top header-bg-color">
     <div class="container-fluid">
         <a class="navbar-brand d-flex" href="">
-            <img src="logo.svg" alt="Ўзбекча таржима" width="32" height="32" class="d-flex align-text-top">
-            <span class="fs-3 fw-bold d-flex align-self-center text-center mx-auto text-white">Ўзбекча таржима</span>
+            <img src="logo.svg" alt="@TransliterationService.GetDisplayText("Ўзбекча таржима")" width="32" height="32" class="d-flex align-text-top">
+            <span class="fs-3 fw-bold d-flex align-self-center text-center mx-auto text-white">@TransliterationService.GetDisplayText("Ўзбекча таржима")</span>
         </a>
         <button title="Navigation menu" class="navbar-toggler text-white" @onclick="ToggleNavMenu">
             <span class="navbar-toggler-icon"></span>
@@ -18,37 +18,37 @@
     <nav class="flex-column fw-bold">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                @* <span class="oi oi-home" aria-hidden="true"></span> *@<img src="home.png" width="32" height="32" class="mx-2" /> Бош саҳифа
+                @* <span class="oi oi-home" aria-hidden="true"></span> *@<img src="home.png" width="32" height="32" class="mx-2" /> @TransliterationService.GetDisplayText("Бош саҳифа")
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="Suras" Match="NavLinkMatch.All">
-                @* <span class="oi oi-list-rich" aria-hidden="true"></span> *@<img src="menu_book_black.png" width="32" height="32" class="mx-2" /> Суралар
+                @* <span class="oi oi-list-rich" aria-hidden="true"></span> *@<img src="menu_book_black.png" width="32" height="32" class="mx-2" /> @TransliterationService.GetDisplayText("Суралар")
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="Favorites" Match="NavLinkMatch.All">
-                @* <span class="oi oi-heart" aria-hidden="true"></span> *@<img src="heart_check_black.png" width="32" height="32" class="mx-2" /> Белгиланган оятлар
+                @* <span class="oi oi-heart" aria-hidden="true"></span> *@<img src="heart_check_black.png" width="32" height="32" class="mx-2" /> @TransliterationService.GetDisplayText("Белгиланган оятлар")
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="Notes" Match="NavLinkMatch.All">
-                @* <span class="oi oi-clipboard" aria-hidden="true"></span> *@<img src="note_alt_black.png" width="32" height="32" class="mx-2" /> Қайдлар
+                @* <span class="oi oi-clipboard" aria-hidden="true"></span> *@<img src="note_alt_black.png" width="32" height="32" class="mx-2" /> @TransliterationService.GetDisplayText("Қайдлар")
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="Search" Match="NavLinkMatch.All">
-                @* <span class="oi oi-magnifying-glass" aria-hidden="true"></span> *@<img src="search_black.png" width="32" height="32" class="mx-2" /> Излаш
+                @* <span class="oi oi-magnifying-glass" aria-hidden="true"></span> *@<img src="search_black.png" width="32" height="32" class="mx-2" /> @TransliterationService.GetDisplayText("Излаш")
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink type="button" class="nav-link" Match="NavLinkMatch.All" @onclick="() => DisplayPrompt()">
-                @* <span class="oi oi-share" aria-hidden="true"></span> *@<img src="forward_black.png" width="32" height="32" class="mx-2" /> Оятга ўтиш
+                @* <span class="oi oi-share" aria-hidden="true"></span> *@<img src="forward_black.png" width="32" height="32" class="mx-2" /> @TransliterationService.GetDisplayText("Оятга ўтиш")
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="Settings" Match="NavLinkMatch.All">
-                @* <span class="oi oi-cog" aria-hidden="true"></span> *@<img src="settings_black.png" width="32" height="32" class="mx-2" /> Созламалар
+                @* <span class="oi oi-cog" aria-hidden="true"></span> *@<img src="settings_black.png" width="32" height="32" class="mx-2" /> @TransliterationService.GetDisplayText("Созламалар")
             </NavLink>
         </div>
     </nav>
@@ -59,6 +59,17 @@
 
     private string NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        TransliterationService.OnScriptChanged += HandleScriptChanged;
+    }
+
+    private void HandleScriptChanged()
+    {
+        InvokeAsync(StateHasChanged); // Re-render the NavMenu when script changes
+    }
+
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
@@ -66,7 +77,13 @@
 
     private async Task DisplayPrompt()
     {
-        var sureayetno = await DialogService.DisplayPrompt("Оятга ўтиш", "Сура ва оят рақамини киритинг (масалан: 16:90 ёки 16/90)", "Кириш", "Қайтиш");
+        // Transliterate dialog prompts if necessary
+        var promptTitle = TransliterationService.GetDisplayText("Оятга ўтиш");
+        var promptMessage = TransliterationService.GetDisplayText("Сура ва оят рақамини киритинг (масалан: 16:90 ёки 16/90)");
+        var okButton = TransliterationService.GetDisplayText("Кириш");
+        var cancelButton = TransliterationService.GetDisplayText("Қайтиш");
+
+        var sureayetno = await DialogService.DisplayPrompt(promptTitle, promptMessage, okButton, cancelButton);
         if (!string.IsNullOrEmpty(sureayetno) && (sureayetno.Contains(':') || sureayetno.Contains('/')))
         {
             char delimiter = sureayetno.Contains(':') ? ':' : '/';
@@ -77,7 +94,14 @@
                 return;
             }
         }
-        await DialogService.DisplayAlert("Нотўгри шакл", "Сиз боб ва оят рақамини нотўғри киритдингиз, қайта уриниб кўринг (мисол: 16:90 ёки 16/90)", "Қайтиш");
+        var alertTitle = TransliterationService.GetDisplayText("Нотўгри шакл");
+        var alertMessage = TransliterationService.GetDisplayText("Сиз боб ва оят рақамини нотўғри киритдингиз, қайта уриниб кўринг (мисол: 16:90 ёки 16/90)");
+        var alertButton = TransliterationService.GetDisplayText("Қайтиш");
+        await DialogService.DisplayAlert(alertTitle, alertMessage, alertButton);
     }
 
+    public void Dispose()
+    {
+        TransliterationService.OnScriptChanged -= HandleScriptChanged;
+    }
 }
