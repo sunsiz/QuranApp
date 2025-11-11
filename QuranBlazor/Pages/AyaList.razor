@@ -3,6 +3,7 @@
 @using System.Diagnostics.Tracing
 @using System.Text.RegularExpressions
 @using System.Diagnostics
+@using QuranBlazor.Services
 @inject DbContext db
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavigationManager
@@ -16,32 +17,39 @@
     public int SuraId { get; set; }
 
     public string SuraName { get; set; }
-    private string arabicStyle => $"font-size:{Preferences.Get("ArabicFontSize", 16)}px";
-    private string textStyle => $"font-size:{Preferences.Get("TranslateFontSize", 14)}px";
-    private string commentStyle => $"font-size:{Preferences.Get("CommentFontSize", 12)}px;margin-bottom:0px";
-    private string bookmarkAya = Preferences.Get("Bookmark", "49:11");
+    private int arabicFontSize;
+    private int translateFontSize;
+    private int commentFontSize;
+    private string arabicStyle => $"font-size:{arabicFontSize}px";
+    private string textStyle => $"font-size:{translateFontSize}px";
+    private string commentStyle => $"font-size:{commentFontSize}px;margin-bottom:0px";
+    private string bookmarkAya = Preferences.Get(PreferenceKeys.Bookmark, PreferenceKeys.DefaultBookmark);
     private bool isDataLoaded;
     private bool isLoading = true;
     private string errorMessage;
     private bool preventScrollToFragment;
-    public IEnumerable<Aya> Ayas { get; set; }
+    private bool isUserInitiatedBackToTop = false;
+    private IEnumerable<Aya> Ayas { get; set; }
+    private IEnumerable<Aya> AllAyas { get; set; }
     private int _currentSuraIdForPage;
     private string _previousFragment = string.Empty;
-    private bool _justUpdatedUrlFragment = false;
     private IDisposable _locationChangingHandler;
+    private DebounceTimer _debounceTimer;
 
-    private async ValueTask Favorite(Aya aya)
-    {
-        preventScrollToFragment = true; // Set the flag when Favorite is called
-        aya.IsFavorite = !aya.IsFavorite;
-        await db.UpdateAyaAsync(aya);
-        Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят белгиланди"));
-    }
+    private static readonly Regex CommentLinkRegex = new Regex(@"\(([^)]+)\)", RegexOptions.Compiled);
+
+    // Bookmark Collections
+    private bool showCollectionsDialog = false;
+    private Aya selectedAyaForCollection;
+    private List<BookmarkCollection> availableCollections;
+    private HashSet<int> ayaCollections = new();
+    private string newCollectionName = string.Empty;
+    private bool showCreateNewInDialog = false;
 
     private async Task Bookmark(Aya aya)
     {
         preventScrollToFragment = true; // Set the flag when Bookmark is called
-        Preferences.Set("Bookmark", aya.SuraId + ":" + aya.AyaId);
+        Preferences.Set(PreferenceKeys.Bookmark, aya.SuraId + ":" + aya.AyaId);
         bookmarkAya = aya.SuraId + ":" + aya.AyaId;
         Dialog.DisplayToast(TransliterationService.GetDisplayText("Сўнги ўқиган оятингиз деб белгиланди"));
     }
@@ -70,12 +78,141 @@
 
     }
 
+    private async Task ShowCollectionsDialog(Aya aya)
+    {
+        preventScrollToFragment = true;
+        selectedAyaForCollection = aya;
+        
+        try
+        {
+            availableCollections = await db.GetBookmarkCollectionsAsync();
+            var collections = await db.GetCollectionsForAyaAsync(aya.SuraId, aya.AyaId);
+            ayaCollections = new HashSet<int>(collections.Select(c => c.Id));
+            showCollectionsDialog = true;
+            showCreateNewInDialog = false;
+            newCollectionName = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error loading collections: {ex.Message}");
+            Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
+        }
+    }
+
+    private void CloseCollectionsDialog()
+    {
+        showCollectionsDialog = false;
+        selectedAyaForCollection = null;
+        availableCollections = null;
+        ayaCollections.Clear();
+        showCreateNewInDialog = false;
+        newCollectionName = string.Empty;
+    }
+
+    private void ShowCreateNewCollection()
+    {
+        showCreateNewInDialog = true;
+    }
+
+    private void CancelCreateNewCollection()
+    {
+        showCreateNewInDialog = false;
+        newCollectionName = string.Empty;
+    }
+
+    private async Task CreateAndAddToNewCollection()
+    {
+        if (string.IsNullOrWhiteSpace(newCollectionName))
+        {
+            Dialog.DisplayToast(TransliterationService.GetDisplayText("Илтимос, тўплам номини киритинг"));
+            return;
+        }
+
+        try
+        {
+            // Create new collection
+            var newCollection = new BookmarkCollection
+            {
+                Name = newCollectionName,
+                CreatedDate = DateTime.Now
+            };
+            
+            var collectionId = await db.AddBookmarkCollectionAsync(newCollection);
+            
+            // Add current aya to the new collection
+            if (selectedAyaForCollection != null)
+            {
+                await db.AddAyaToCollectionAsync(selectedAyaForCollection.Id, collectionId);
+            }
+            
+            // Reload collections to show the new one
+            availableCollections = await db.GetBookmarkCollectionsAsync();
+            var collections = await db.GetCollectionsForAyaAsync(selectedAyaForCollection.SuraId, selectedAyaForCollection.AyaId);
+            ayaCollections = new HashSet<int>(collections.Select(c => c.Id));
+            
+            // Update IsFavorite flag
+            selectedAyaForCollection.IsFavorite = ayaCollections.Count > 0;
+            await db.UpdateAyaAsync(selectedAyaForCollection);
+            
+            showCreateNewInDialog = false;
+            newCollectionName = string.Empty;
+            
+            Dialog.DisplayToast(TransliterationService.GetDisplayText("Янги тўплам яратилди ва оят қўшилди"));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error creating collection: {ex.Message}");
+            Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
+        }
+    }
+
+    private async Task ToggleCollection(int collectionId)
+    {
+        if (selectedAyaForCollection == null) return;
+
+        try
+        {
+            if (ayaCollections.Contains(collectionId))
+            {
+                await db.RemoveAyaFromCollectionAsync(selectedAyaForCollection.Id, collectionId);
+                ayaCollections.Remove(collectionId);
+                Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўпламдан олиб ташланди"));
+            }
+            else
+            {
+                await db.AddAyaToCollectionAsync(selectedAyaForCollection.Id, collectionId);
+                ayaCollections.Add(collectionId);
+                Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўпламга қўшилди"));
+            }
+            
+            // Update IsFavorite flag based on whether aya is in any collection
+            selectedAyaForCollection.IsFavorite = ayaCollections.Count > 0;
+            await db.UpdateAyaAsync(selectedAyaForCollection);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error toggling collection: {ex.Message}");
+            Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
+        }
+    }
+
 
     protected override async Task OnInitializedAsync()
     {
+        _debounceTimer = new DebounceTimer(300);
         _currentSuraIdForPage = SuraId;
         _previousFragment = new Uri(NavigationManager.Uri, UriKind.Absolute).Fragment;
+        
+        // Load font sizes
+        arabicFontSize = FontSizeService.GetArabicFontSize();
+        translateFontSize = FontSizeService.GetTranslateFontSize();
+        commentFontSize = FontSizeService.GetCommentFontSize();
+        
+        // Subscribe to events
         NavigationManager.LocationChanged += HandleLocationChanged;
+        TransliterationService.OnScriptChanged += HandleScriptChanged;
+        FontSizeService.OnFontSizeChanged += HandleFontSizeChanged;
+        
         // Replaced OnBeforeInternalNavigation with RegisterLocationChangingHandler
         _locationChangingHandler = NavigationManager.RegisterLocationChangingHandler(HandleBeforeInternalNavigation);
         // NavigationManager.OnBeforeInternalNavigation += HandleBeforeInternalNavigation;
@@ -105,7 +242,8 @@
         isDataLoaded = false; // Reset data loaded flag
         try
         {
-            Ayas = await db.GetAyaListAsync(SuraId).ConfigureAwait(false);
+            AllAyas = await db.GetAyaListAsync(SuraId).ConfigureAwait(false);
+            Ayas = AllAyas;
             SuraName = await db.GetSuraNameAsync(SuraId).ConfigureAwait(false);
             isDataLoaded = true;
         }
@@ -127,7 +265,8 @@
             var uri = new Uri(NavigationManager.Uri, UriKind.Absolute);
             var fragment = uri.Fragment;
 
-            if (!preventScrollToFragment)
+            // Skip all scroll operations if user clicked back-to-top
+            if (!isUserInitiatedBackToTop && !preventScrollToFragment)
             {
                 if (!string.IsNullOrEmpty(fragment) && fragment.StartsWith('#'))
                 {
@@ -139,6 +278,10 @@
                     Debug.WriteLine("OnAfterRenderAsync: No fragment, attempting to restore general scroll position (restoreScrollPosition).");
                     await JsRuntime.InvokeVoidAsync("restoreScrollPosition");
                 }
+            }
+            else if (isUserInitiatedBackToTop)
+            {
+                Debug.WriteLine("OnAfterRenderAsync: Skipping scroll restoration - user clicked back-to-top");
             }
 
             if (firstRender)
@@ -167,7 +310,6 @@
             // This JS call is fire-and-forget in terms of Blazor's sync lifecycle for this event.
             // history.replaceState is synchronous, so it should be fine.
             await JsRuntime.InvokeVoidAsync("updateUrlWithTopVisibleAyaFragmentForAyaList");
-            _justUpdatedUrlFragment = true; // Indicate that a fragment might have been set
         }
     }
 
@@ -191,10 +333,26 @@
         _previousFragment = newFragment;
     }
 
+    private void HandleScriptChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleFontSizeChanged()
+    {
+        arabicFontSize = FontSizeService.GetArabicFontSize();
+        translateFontSize = FontSizeService.GetTranslateFontSize();
+        commentFontSize = FontSizeService.GetCommentFontSize();
+        InvokeAsync(StateHasChanged);
+    }
+
     public void Dispose()
     {
         NavigationManager.LocationChanged -= HandleLocationChanged;
+        TransliterationService.OnScriptChanged -= HandleScriptChanged;
+        FontSizeService.OnFontSizeChanged -= HandleFontSizeChanged;
         _locationChangingHandler?.Dispose();
+        _debounceTimer?.Dispose();
         // NavigationManager.OnBeforeInternalNavigation -= HandleBeforeInternalNavigation;
     }
 
@@ -259,27 +417,60 @@
     }
     private async Task BackToTop()
     {
-        preventScrollToFragment = true; // Set the flag when BackToTop is called
+        isUserInitiatedBackToTop = true;
+        preventScrollToFragment = true;
+        
+        // Scroll to actual top
         await JsRuntime.InvokeVoidAsync("BlazorScrollToTop");
+        
+        // Clear fragment from URL - this will trigger HandleLocationChanged
+        // but isUserInitiatedBackToTop flag will prevent scroll restoration
+        var currentUri = new Uri(NavigationManager.Uri, UriKind.Absolute);
+        var uriWithoutFragment = currentUri.GetLeftPart(UriPartial.Query);
+        if (currentUri.Fragment.Length > 0)
+        {
+            NavigationManager.NavigateTo(uriWithoutFragment, false);
+        }
+        
+        // Reset flags after a delay
+        await Task.Delay(100);
+        isUserInitiatedBackToTop = false;
         StateHasChanged();
     }
 
     string AyaFilter;
     private void FilterAya()
     {
-        bool toLatin = Preferences.Get("UzbekScript", "Cyrillic") == "Latin";
-        string filterTerm = AyaFilter; // Assuming filter term matches current display script
-        Ayas = Ayas.Where(a =>
+        _debounceTimer.Debounce(() =>
         {
-            string text = toLatin ? TransliterationService.ToLatin(a.Text) : a.Text;
-            string comment = (a.Comment != null) ? (toLatin ? TransliterationService.ToLatin(a.Comment) : a.Comment) : null;
-            bool textMatch = text?.IndexOf(filterTerm, StringComparison.InvariantCultureIgnoreCase) >= 0;
-            bool commentMatch = comment?.IndexOf(filterTerm, StringComparison.InvariantCultureIgnoreCase) >= 0;
-            return textMatch || commentMatch;
-        }).ToList();
+            InvokeAsync(() =>
+            {
+                if (string.IsNullOrWhiteSpace(AyaFilter))
+                {
+                    Ayas = AllAyas;
+                }
+                else
+                {
+                    bool toLatin = Preferences.Get(PreferenceKeys.UzbekScript, PreferenceKeys.DefaultScript) == "Latin";
+                    string filterTerm = AyaFilter;
+                    Ayas = AllAyas.Where(a =>
+                    {
+                        string text = toLatin ? TransliterationService.ToLatin(a.Text) : a.Text;
+                        string comment = (a.Comment != null) ? (toLatin ? TransliterationService.ToLatin(a.Comment) : a.Comment) : null;
+                        bool textMatch = text?.IndexOf(filterTerm, StringComparison.InvariantCultureIgnoreCase) >= 0;
+                        bool commentMatch = comment?.IndexOf(filterTerm, StringComparison.InvariantCultureIgnoreCase) >= 0;
+                        return textMatch || commentMatch;
+                    }).ToList();
+                }
+                StateHasChanged();
+            });
+        });
+    }
 
-        StateHasChanged(); // Notify Blazor that the data has changed
-        //a.Text.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase) || (a.Comment != null && a.Comment.Contains(AyaFilter, StringComparison.InvariantCultureIgnoreCase))).ToList();
+    private void ClearAyaSearch()
+    {
+        AyaFilter = string.Empty;
+        Ayas = AllAyas;
     }
 
     private string StripHtml(string input)
@@ -314,14 +505,13 @@
     {
         if (string.IsNullOrEmpty(cyrillicCommentFromDb)) return string.Empty;
 
-        var regex = new Regex(@"\(([^)]+)\)");
         bool toLatin = Preferences.Get("UzbekScript", "Cyrillic") == "Latin";
         var resultHtml = new System.Text.StringBuilder();
         int lastIndex = 0;
 
         try
         {
-            foreach (Match match in regex.Matches(cyrillicCommentFromDb))
+            foreach (Match match in CommentLinkRegex.Matches(cyrillicCommentFromDb))
             {
                 // Append the text segment before this match, transliterated
                 string textBeforeMatch = cyrillicCommentFromDb.Substring(lastIndex, match.Index - lastIndex);
@@ -382,16 +572,22 @@
     }
 }
 <div class="text-white mb-3">
-    @*  form-floating *@
-    <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" type="search" placeholder="@TransliterationService.GetDisplayText(" Оят Излаш")" @bind="AyaFilter" @bind:event="oninput" @bind:after="FilterAya" aria-label="Оят Излаш">
-    @* <label class="primary-color" for="floatingSearch">Оят Излаш</label> *@
+    <div class="position-relative">
+        <input class="form-control me-2 rounded-pill primary-color p-3 pe-5" id="floatingSearch" type="search" placeholder="@TransliterationService.GetDisplayText("Оят Излаш")" @bind="AyaFilter" @bind:event="oninput" @bind:after="FilterAya" aria-label="Оят Излаш">
+        @if (!string.IsNullOrEmpty(AyaFilter))
+        {
+            <button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y me-2" @onclick="ClearAyaSearch" aria-label="@TransliterationService.GetDisplayText("Тозалаш")">
+                <img src="close.svg" class="svg-icon svg-icon-md" alt="Clear" />
+            </button>
+        }
+    </div>
 </div>
 
-<div class="text-center vstack shadow-lg bg-light bg-gradient rounded-pill" id="surahead">
-    <h3 class="pt-3 pb-0 text-black">@SuraId. @TransliterationService.GetDisplayText(SuraName) @TransliterationService.GetDisplayText(" сураси")</h3>
+<div class="card-header text-center vstack shadow-lg rounded-pill py-2" id="surahead">
+    <h3 class="card-title fs-3 text-primary">@SuraId. @TransliterationService.GetDisplayText(SuraName) @TransliterationService.GetDisplayText(" сураси")</h3>
     @if (SuraId is not (1 or 9))
     {
-        <span class="text-center arabic mx-auto fs-2 pb-2 pt-0">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
+        <h4 class="text-center arabic mx-auto fs-2">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</h4>
     }
 </div>
 @if (isLoading)
@@ -417,12 +613,20 @@ else
                     <div class="card bg-light bg-gradient rounded-pill">
                         <div class="card-body">
                             <div class="vstack">
-                                <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white ">
-                                    <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@aya.AyaId</span>
-                                    <span title="оятни баҳам кўринг" aria-hidden="true" @onclick="async () => await ShareAya(aya)"><img src="share_white.png" width="28" height="28" alt="оятни баҳам кўринг" /></span>
-                                    <span class="text-white" title="Оятни белгилаш" aria-hidden="true" @onclick="async () => await Favorite(aya)"><img src="@(aya.IsFavorite ? "heart_check_white.png" : "heart_plus_white.png")" width="28" height="28" alt="Оятни белгилаш" /></span>
-                                    <span title="Эслатма қўшинг" aria-hidden="true" @onclick="() => NoteAsync(aya)"><img src="@(aya.HasNote ? "note_alt_white.png" : "add_notes_white.png")" width="28" height="28" alt="Эслатма қўшинг" /></span>
-                                    <span class="me-3" title="Сўнг ўқилган оят деб белгилаш" aria-hidden="true" @onclick="() => Bookmark(aya)"><img src="@((SuraId + ":" + aya.AyaId == bookmarkAya) ? "bookmark_added_white.png" : "bookmark_add_white.png")" width="28" height="28" alt="Сўнг ўқилган оят деб белгилаш" /></span>
+                                <h5 class="card-title header-bg-color hstack rounded-3 gap-3 text-white ">
+                                    <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1" aria-label="@TransliterationService.GetDisplayText("Оят рақами")">@aya.AyaId</span>
+                                    <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="async () => await ShareAya(aya)" aria-label="@TransliterationService.GetDisplayText("Оятни баҳам кўриш")" title="@TransliterationService.GetDisplayText("Оятни баҳам кўриш")">
+                                        <img src="share.svg" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                    </button>
+                                    <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="() => ShowCollectionsDialog(aya)" aria-label="@(aya.IsFavorite ? TransliterationService.GetDisplayText("Тўпламларда") : TransliterationService.GetDisplayText("Тўпламларга қўшиш"))" title="@(aya.IsFavorite ? TransliterationService.GetDisplayText("Тўпламларда") : TransliterationService.GetDisplayText("Тўпламларга қўшиш"))">
+                                        <img src="@(aya.IsFavorite ? "favorite_fill.svg" : "favorite.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                    </button>
+                                    <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="() => NoteAsync(aya)" aria-label="@(aya.HasNote ? TransliterationService.GetDisplayText("Қайдни таҳрирлаш ёки ўчириш") : TransliterationService.GetDisplayText("Қайд қўшиш"))" title="@(aya.HasNote ? TransliterationService.GetDisplayText("Қайдни таҳрирлаш ёки ўчириш") : TransliterationService.GetDisplayText("Қайд қўшиш"))">
+                                        <img src="@(aya.HasNote ? "edit_note.svg" : "note_add.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                    </button>
+                                    <button type="button" class="btn btn-link p-0 border-0 bg-transparent me-3" style="min-width: 44px; min-height: 44px;" @onclick="() => Bookmark(aya)" aria-label="@TransliterationService.GetDisplayText("Сўнги ўқилган оят деб белгилаш")" title="@TransliterationService.GetDisplayText("Сўнги ўқилган оят деб белгилаш")">
+                                        <img src="@((SuraId + ":" + aya.AyaId == bookmarkAya) ? "bookmark_fill.svg" : "bookmark_add.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                    </button>
                                 </h5>
                                 <p class="arabic mb-0 me-2 " style=@arabicStyle>@aya.Arabic</p>
                                 @if (string.IsNullOrEmpty(AyaFilter))
@@ -455,4 +659,85 @@ else
         }
     }
     <div id="BackToTop" class="Shown" @onclick="BackToTop"></div>
+}
+
+@if (showCollectionsDialog && selectedAyaForCollection != null)
+{
+    <div class="modal show d-block modal-fade-in" tabindex="-1" style="background-color: rgba(0,0,0,0.6);" @onclick="CloseCollectionsDialog">
+        <div class="modal-dialog modal-dialog-centered modal-slide-up" @onclick:stopPropagation="true">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@TransliterationService.GetDisplayText("Тўпламга қўшиш")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseCollectionsDialog" aria-label="@TransliterationService.GetDisplayText("Ёпиш")"></button>
+                </div>
+                <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                    @if (!showCreateNewInDialog)
+                    {
+                        @if (availableCollections == null || !availableCollections.Any())
+                        {
+                            <div class="text-center py-3">
+                                <img src="collections_bookmark.svg" class="svg-icon svg-icon-xxl mb-3 opacity-50 svg-icon-light" alt="" />
+                                <p class="text-muted">@TransliterationService.GetDisplayText("Сизда ҳали тўпламлар йўқ")</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="list-group">
+                                @foreach (var collection in availableCollections)
+                                {
+                                    var isInCollection = ayaCollections.Contains(collection.Id);
+                                    <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(isInCollection ? "active" : "")" 
+                                            @onclick="() => ToggleCollection(collection.Id)"
+                                            style="min-height: 48px;">
+                                        <div class="d-flex align-items-center">
+                                            @if (!string.IsNullOrEmpty(collection.ColorCode))
+                                            {
+                                                <span class="badge me-2" style="background-color: @collection.ColorCode; width: 16px; height: 16px;"></span>
+                                            }
+                                            <span>@TransliterationService.GetDisplayText(collection.Name)</span>
+                                        </div>
+                                        @if (isInCollection)
+                                        {
+                                            <span class="badge bg-success">✓</span>
+                                        }
+                                    </button>
+                                }
+                            </div>
+                        }
+                        
+                        <button type="button" class="btn btn-outline-primary rounded-pill w-100 mt-3" @onclick="ShowCreateNewCollection" style="min-height: 48px;">
+                            <img src="note_add.svg" class="svg-icon svg-icon-md me-2 svg-icon-primary" alt="" />
+                            @TransliterationService.GetDisplayText("Янги тўплам яратиш")
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">@TransliterationService.GetDisplayText("Янги тўплам номи")</label>
+                            <input type="text" class="form-control form-control-lg" @bind="newCollectionName" 
+                                   placeholder="@TransliterationService.GetDisplayText("Масалан: Севимли дуолар")" 
+                                   @onkeyup="@(async (e) => { if (e.Key == "Enter") await CreateAndAddToNewCollection(); })" />
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-secondary rounded-pill flex-fill" @onclick="CancelCreateNewCollection" style="min-height: 48px;">
+                                @TransliterationService.GetDisplayText("Бекор қилиш")
+                            </button>
+                            <button type="button" class="btn btn-primary rounded-pill flex-fill" @onclick="CreateAndAddToNewCollection" 
+                                    disabled="@(string.IsNullOrWhiteSpace(newCollectionName))" style="min-height: 48px;">
+                                @TransliterationService.GetDisplayText("Яратиш ва қўшиш")
+                            </button>
+                        </div>
+                    }
+                </div>
+                @if (!showCreateNewInDialog)
+                {
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary rounded-pill" @onclick="CloseCollectionsDialog" style="min-height: 44px;">
+                            @TransliterationService.GetDisplayText("Ёпиш")
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
 }

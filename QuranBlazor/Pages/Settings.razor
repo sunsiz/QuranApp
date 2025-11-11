@@ -1,37 +1,47 @@
 ﻿@page "/settings"
+@using QuranBlazor.Services
+@inject ExportService ExportService
+@inject DialogService Dialog
+@implements IDisposable
 
 @code {
 
     private int ArabicFontSize
     {
-        get => Preferences.Get("ArabicFontSize", 16);
-        set => Preferences.Set("ArabicFontSize", value);
+        get => Preferences.Get(PreferenceKeys.ArabicFontSize, PreferenceKeys.DefaultArabicFontSize);
+        set => Preferences.Set(PreferenceKeys.ArabicFontSize, value);
     }
 
     private int TranslateFontSize
     {
-        get => Preferences.Get("TranslateFontSize", 14);
-        set => Preferences.Set("TranslateFontSize", value);
+        get => Preferences.Get(PreferenceKeys.TranslateFontSize, PreferenceKeys.DefaultTranslateFontSize);
+        set => Preferences.Set(PreferenceKeys.TranslateFontSize, value);
     }
 
     private int CommentFontSize
     {
-        get => Preferences.Get("CommentFontSize", 12);
-        set => Preferences.Set("CommentFontSize", value);
+        get => Preferences.Get(PreferenceKeys.CommentFontSize, PreferenceKeys.DefaultCommentFontSize);
+        set => Preferences.Set(PreferenceKeys.CommentFontSize, value);
     }
 
     private string UzbekScript
     {
-        get => Preferences.Get("UzbekScript", "Cyrillic");
+        get => Preferences.Get(PreferenceKeys.UzbekScript, PreferenceKeys.DefaultScript);
         set
         {
-            if (Preferences.Get("UzbekScript", "Cyrillic") != value)
+            if (Preferences.Get(PreferenceKeys.UzbekScript, PreferenceKeys.DefaultScript) != value)
             {
-                Preferences.Set("UzbekScript", value);
+                Preferences.Set(PreferenceKeys.UzbekScript, value);
                 InvokeAsync(StateHasChanged); // Re-render this page
                 TransliterationService.NotifyScriptChanged(); // Notify other components
             }
         }
+    }
+
+    private string Theme
+    {
+        get => ThemeService.CurrentTheme;
+        set => ThemeService.CurrentTheme = value;
     }
     // Helper for display text to avoid direct service call in markup if it gets complex
     private string GetDisplayText(string cyrillicText)
@@ -46,6 +56,131 @@
     {
         UzbekScript = e.Value.ToString();
     }
+
+    private void OnThemeChanged(ChangeEventArgs e)
+    {
+        Theme = e.Value.ToString();
+    }
+
+    private bool isExporting = false;
+    private bool isImporting = false;
+
+    private async Task ImportData()
+    {
+        if (isImporting) return;
+
+        isImporting = true;
+        try
+        {
+            var confirmed = await Dialog.DisplayConfirm(
+                TransliterationService.GetDisplayText("Маълумотларни тиклаш"),
+                TransliterationService.GetDisplayText("Мавжуд қайдлар ўрнига янгилари қўйилади. Давом эттирасизми?"),
+                TransliterationService.GetDisplayText("Ҳа"),
+                TransliterationService.GetDisplayText("Йўқ")
+            );
+
+            if (!confirmed) return;
+
+            var (notesImported, favoritesImported, error) = await ExportService.ImportFromFileAsync();
+
+            if (!string.IsNullOrEmpty(error))
+            {
+                if (error != "No file selected")
+                {
+                    await Dialog.DisplayAlert(
+                        TransliterationService.GetDisplayText("Хатолик"),
+                        TransliterationService.GetDisplayText($"Тиклаш хатолиги: {error}"),
+                        TransliterationService.GetDisplayText("Яхши")
+                    );
+                }
+            }
+            else
+            {
+                var message = $"{notesImported} {TransliterationService.GetDisplayText("та қайд")} ва {favoritesImported} {TransliterationService.GetDisplayText("та белгиланган оят тикланди")}";
+                Dialog.DisplayToast(TransliterationService.GetDisplayText(message));
+            }
+        }
+        catch (Exception ex)
+        {
+            await Dialog.DisplayAlert(
+                TransliterationService.GetDisplayText("Хатолик"),
+                TransliterationService.GetDisplayText($"Тиклаш хатолиги: {ex.Message}"),
+                TransliterationService.GetDisplayText("Яхши")
+            );
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+
+    private async Task ExportData()
+    {
+        if (isExporting) return;
+
+        isExporting = true;
+        try
+        {
+            var (notesCount, favoritesCount) = await ExportService.GetDataStatisticsAsync();
+
+            if (notesCount == 0 && favoritesCount == 0)
+            {
+                await Dialog.DisplayAlert(
+                    TransliterationService.GetDisplayText("Маълумот йўқ"),
+                    TransliterationService.GetDisplayText("Сизда заҳиралаш учун ҳеч қандай қайд ёки белгиланган оят йўқ."),
+                    TransliterationService.GetDisplayText("Яхши")
+                );
+                return;
+            }
+
+            var message = $"{notesCount} {TransliterationService.GetDisplayText("та қайд")} ва {favoritesCount} {TransliterationService.GetDisplayText("та белгиланган оятни заҳиралашни истайсизми?")}";
+
+            var confirmed = await Dialog.DisplayConfirm(
+                TransliterationService.GetDisplayText("Маълумотларни заҳиралаш"),
+                TransliterationService.GetDisplayText(message),
+                TransliterationService.GetDisplayText("Ҳа"),
+                TransliterationService.GetDisplayText("Йўқ")
+            );
+
+            if (confirmed)
+            {
+                await ExportService.ShareBackupAsync();
+                Dialog.DisplayToast(TransliterationService.GetDisplayText("Маълумотлар муваффақиятли заҳираланди"));
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Export error: {ex.Message}");
+            Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        TransliterationService.OnScriptChanged += HandleScriptChanged;
+        ThemeService.OnThemeChanged += HandleThemeChanged;
+    }
+
+    private void HandleScriptChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleThemeChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        TransliterationService.OnScriptChanged -= HandleScriptChanged;
+        ThemeService.OnThemeChanged -= HandleThemeChanged;
+    }
     // private void SetScript(string script)
     // {
     //     UzbekScript = script;
@@ -53,32 +188,86 @@
 }
 <div class="mx-0">
     <div class="card bg-light bg-gradient rounded-pill">
-        <h3 class="px-5 py-2 shadow-lg w-100 card-bg-color bg-gradient rounded-pill card-title text-black fw-bold"><img src="settings_black.png" width="48" height="48" class="mx-2" /> @TransliterationService.GetDisplayText("Созламалар")</h3>@*  oi oi-cog *@
+        <h3 class="px-5 py-2 shadow-lg w-100 card-bg-color bg-gradient rounded-pill card-title text-primary fw-bold"><img src="tune.svg" class="svg-icon svg-icon-xl mx-2 svg-icon-primary" alt="" /> @TransliterationService.GetDisplayText("Созламалар")</h3>@*  oi oi-cog *@
         <div class="card-body">
             <div class="vstack border-3 p-2 m-2 my-3 rounded-pill bg-light bg-gradient shadow-sm">
-                <h5 class="card-title hstack gap-3 text-black">@GetDisplayText("Ёзув тури")</h5>
-                <div class="btn-group w-100" role="group" aria-label="Script selection">
-                    <input type="radio" class="btn-check" name="script" id="scriptCyrillic" value="Cyrillic" autocomplete="off" checked="@(UzbekScript == "Cyrillic")" @onchange="OnScriptChanged">
-                    <label class="btn btn-outline-primary rounded-start-pill" for="scriptCyrillic">Кириллча</label>
+                <h5 class="card-title hstack gap-3 text-primary">@GetDisplayText("Мавзу")</h5>
+                <div class="btn-group w-100" role="group" aria-label="Theme selection">
+                    <input type="radio" class="btn-check" name="theme" id="themeLight" value="Light" autocomplete="off" checked="@(Theme == "Light")" @onchange="OnThemeChanged">
+                        <label class="btn btn-outline-secondary rounded-start-pill d-flex align-items-center" for="themeLight">
+                            <span class="icon-mask icon-light-mode svg-icon-md me-2" aria-hidden="true" title="Light"></span>
+                            @GetDisplayText("Ёруғ")
+                    </label>
 
-                    <input type="radio" class="btn-check" name="script" id="scriptLatin" value="Latin" autocomplete="off" checked="@(UzbekScript == "Latin")" @onchange="OnScriptChanged">
-                    <label class="btn btn-outline-primary rounded-end-pill" for="scriptLatin">Lotincha</label>
+                    <input type="radio" class="btn-check" name="theme" id="themeDark" value="Dark" autocomplete="off" checked="@(Theme == "Dark")" @onchange="OnThemeChanged">
+                        <label class="btn btn-outline-secondary rounded-end-pill d-flex align-items-center" for="themeDark">
+                            <span class="icon-mask icon-dark-mode svg-icon-md me-2" aria-hidden="true" title="Dark"></span>
+                            @GetDisplayText("Тунги")
+                    </label>
                 </div>
             </div>
             <div class="vstack border-3 p-2 m-2 my-3 rounded-pill bg-light bg-gradient shadow-sm">
-                <h5 class="card-title hstack gap-3 text-black">@TransliterationService.GetDisplayText("Арабча матн ҳажми")</h5>
+                <h5 class="card-title hstack gap-3 text-primary">@GetDisplayText("Ёзув тури")</h5>
+                <div class="btn-group w-100" role="group" aria-label="Script selection">
+                    <input type="radio" class="btn-check" name="script" id="scriptCyrillic" value="Cyrillic" autocomplete="off" checked="@(UzbekScript == "Cyrillic")" @onchange="OnScriptChanged">
+                    <label class="btn btn-outline-secondary rounded-start-pill" for="scriptCyrillic">Кириллча</label>
+
+                    <input type="radio" class="btn-check" name="script" id="scriptLatin" value="Latin" autocomplete="off" checked="@(UzbekScript == "Latin")" @onchange="OnScriptChanged">
+                    <label class="btn btn-outline-secondary rounded-end-pill" for="scriptLatin">Lotincha</label>
+                </div>
+            </div>
+            <div class="vstack border-3 p-2 m-2 my-3 rounded-pill bg-light bg-gradient shadow-sm">
+                <div class="hstack justify-content-between px-2">
+                    <h5 class="card-title text-primary mb-0">@TransliterationService.GetDisplayText("Арабча матн ҳажми")</h5>
+                    <span class="badge bg-primary fs-6">@ArabicFontSize px</span>
+                </div>
                 <input type="range" class="form-range" min="10" max="36" step="1" id="arabicRange" @bind-value="@ArabicFontSize">
                 <label style="font-size: @(ArabicFontSize)px; direction: rtl;" class="form-label arabic">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</label>
             </div>
             <div class="vstack border-3 p-2 m-2 m-3 bg-gradient bg-light rounded-pill shadow-sm">
-                <h5 class="card-title hstack gap-3 text-black">@TransliterationService.GetDisplayText("Шрифт ҳажми")</h5>
-                <input type="range" class="form-range" min="12" max="28" step="1" id="translateRange" @bind-value="@TranslateFontSize">
+                <div class="hstack justify-content-between px-2">
+                    <h5 class="card-title text-primary mb-0">@TransliterationService.GetDisplayText("Шрифт ҳажми")</h5>
+                    <span class="badge bg-primary fs-6">@TranslateFontSize px</span>
+                </div>
+                <input type="range" class="form-range" min="12" max="30" step="1" id="translateRange" @bind-value="@TranslateFontSize">
                 <label style="font-size: @(TranslateFontSize)px;" class="form-label">@TransliterationService.GetDisplayText("Марҳамати чексиз ва яхшилик қилувчи – Аллоҳ номи билан.")</label>
             </div>
             <div class="vstack border-3 p-2 m-2 my-3 bg-gradient bg-light rounded-pill shadow-sm">
-                <h5 class="card-title hstack gap-3 text-black">@TransliterationService.GetDisplayText("Изоҳ матн ҳажми")</h5>
+                <div class="hstack justify-content-between px-2">
+                    <h5 class="card-title text-primary mb-0">@TransliterationService.GetDisplayText("Изоҳ матн ҳажми")</h5>
+                    <span class="badge bg-primary fs-6">@CommentFontSize px</span>
+                </div>
                 <input type="range" class="form-range" min="6" max="24" step="1" id="commentRange" @bind-value="@CommentFontSize">
                 <label style="font-size: @(CommentFontSize)px;" class="form-label">@TransliterationService.GetDisplayText("«Раҳмон ва Раҳим» калималари «раҳмат» (رحمة) ўзагидан турланган сифатлардир.")</label>
+            </div>
+            <div class="vstack border-3 p-2 m-2 my-3 rounded-pill bg-light bg-gradient shadow-sm">
+                <h5 class="card-title text-primary text-center mb-3">@TransliterationService.GetDisplayText("Маълумотларни бошқариш")</h5>
+                
+                <button class="btn btn-primary rounded-pill w-100 py-3 mb-3" @onclick="ImportData" disabled="@isImporting">
+                    @if (isImporting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <span class="icon-mask icon-import svg-icon-md me-2" aria-hidden="true" title="Import"></span>
+                    }
+                    @TransliterationService.GetDisplayText("Заҳирадан тиклаш")
+                </button>
+                <small class="text-muted text-center mb-3">@TransliterationService.GetDisplayText("Олдинги заҳира файлини юклаш")</small>
+                
+                <button class="btn btn-primary rounded-pill w-100 py-3" @onclick="ExportData" disabled="@isExporting">
+                    @if (isExporting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <span class="icon-mask icon-export svg-icon-md me-2" aria-hidden="true" title="Export"></span>
+                    }
+                    @TransliterationService.GetDisplayText("Қайдларни заҳиралаш")
+                </button>
+                <small class="text-muted text-center mt-2">@TransliterationService.GetDisplayText("Қайдларингизни файлга сақлаш")</small>
             </div>
         </div>
     </div>

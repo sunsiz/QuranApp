@@ -1,30 +1,37 @@
 ﻿@page "/"
 @using Microsoft.Maui.Storage
 @using System.Web
+@using QuranBlazor.Services
+@using QuranBlazor.Data
+@using System.Diagnostics
+@inject DbContext db
+@implements IDisposable
 
 
 <div class="container-fluid my-3">
     <form class="d-flex" action="/Search" method="get" onsubmit="return encodeSearchTerm()">
-        <input class="form-control rounded-pill primary-color p-3" id="floatingSearch" placeholder="@TransliterationService.GetDisplayText("Излаш")" aria-label="Излаш" name="KeyWord">
-        <button class="btn rounded-pill p-0 fw-bold primary-color" style="font-size: 36px; margin-left: -66px;" type="submit"><img src="search.png" width="48" height="48" class="mx-2" alt="search" /></button>
+        <input class="form-control rounded-pill primary-color p-3" id="floatingSearch" placeholder="@TransliterationService.GetDisplayText("Излаш")" aria-label="@TransliterationService.GetDisplayText("Излаш")" name="KeyWord">
+        <button class="btn rounded-pill p-0 fw-bold primary-color" style="font-size: 36px; margin-left: -66px;" type="submit" aria-label="@TransliterationService.GetDisplayText("Излаш")">
+            <img src="search.svg" class="svg-icon svg-icon-xl mx-2 svg-icon-primary" alt="" />
+        </button>
     </form>
 
     <div class="card my-3 rounded-pill card-bg-color">
         <div class="card-body d-flex justify-content-around align-items-center text-white py-2">
             @{
-                var bookmark = Preferences.Get("Bookmark", "49:11");
+                var bookmark = Preferences.Get(PreferenceKeys.Bookmark, PreferenceKeys.DefaultBookmark);
                 if (!string.IsNullOrEmpty(bookmark))
                 {
                     var parts = bookmark.Split(':');
                     var suraId = parts[0];
                     var ayaId = parts[1];
-                    <img src="bookmark_added_white.png" width="48" height="48" class="mx-2" alt="bookmark" />
+                    <img src="bookmark.svg" class="svg-icon svg-icon-xl svg-icon-white mx-2" alt="bookmark" />
                     <span class="fw-bold fs-4">@suraId. @TransliterationService.GetDisplayText("сура"), @ayaId. @TransliterationService.GetDisplayText("оят")</span>
-                    <a href="AyaList?SuraId=@suraId#@ayaId" class="btn btn-light align-self-center ms-auto rounded-pill fw-bold">@TransliterationService.GetDisplayText("Ўқишни давом эттиринг")</a>
+                    <a href="AyaList?SuraId=@suraId#@ayaId" class="btn btn-light align-self-center ms-auto text-primary rounded-pill fw-bold">@TransliterationService.GetDisplayText("Ўқишни давом эттиринг")</a>
                 }
                 else
                 {
-                    <a href="#" class="btn btn-light disabled ms-auto rounded-pill fw-bold">@TransliterationService.GetDisplayText("Ўқишни давом эттиринг")</a>
+                    <a href="#" class="btn btn-light disabled ms-auto text-primary rounded-pill fw-bold">@TransliterationService.GetDisplayText("Ўқишни давом эттиринг")</a>
                 }
             }
         </div>
@@ -32,10 +39,10 @@
 
     <div class="card my-3 rounded-pill">
         <div class="card-body">
-            <a href="Suras" class="text-black">
+            <a href="Suras" class="text-primary">
                 <div class="row">
                     <div class="col d-flex align-self-center justify-content-center">
-                        <img src="quran.png" alt="Quran" width="150" height="100" />
+                        <img src="auto_stories.svg" class="svg-icon svg-icon-xxl svg-icon-primary" alt="Quran" style="width: 150px; height: 100px;" />
                     </div>
                     <div class="col d-flex align-self-center justify-content-center fw-bold fs-2">
                         @TransliterationService.GetDisplayText("Суралар")
@@ -47,23 +54,76 @@
 
     <div class="row my-3 text-center">
         <div class="col d-flex flex-column">
+                <a href="notes" class="fw-bold">
             <div class="card flex-fill align-items-center justify-content-center rounded-pill">
-                <a href="notes" class="card-text text-black fw-bold">
-                    <div class="card-body" style="min-height: 180px;">
-                        <div class="text-center"><img src="note_alt.png" alt="notes" width="72" height="72" /></div>
-                        @TransliterationService.GetDisplayText("Қайдларингиз")
+                    <div class="card-body" style="min-height: 130px;">
+                        <div class="text-center"><img src="edit_note.svg" class="svg-icon svg-icon-xxl svg-icon-primary" alt="notes" /></div>
+                        <span class="text-primary fw-bold">@TransliterationService.GetDisplayText("Қайдларингиз")</span>
                     </div>
+            </div>
                 </a>
+        </div>
+        <div class="col d-flex flex-column">
+            <a href="collections" class="card-text text-primary fw-bold">
+            <div class="card flex-fill align-items-center justify-content-center rounded-pill">
+                    <div class="card-body" style="min-height: 130px;">
+                        <div class="text-center"><img src="collections_bookmark.svg" class="svg-icon svg-icon-xxl svg-icon-primary" alt="collections" /></div>
+                        <span class="text-primary fw-bold">@TransliterationService.GetDisplayText("Тўпламлар")</span>
+                        @if (collectionsCount > 0)
+                        {
+                            <div class="badge bg-primary mt-2 ms-2"> @collectionsCount</div>
+                        }
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="row my-3 text-center">
+        <div class="col d-flex flex-column">
+            <div class="card flex-fill align-items-center justify-content-center rounded-pill">
+                <div class="card-body" style="min-height: 130px;">
+                    <div class="text-center mb-2">
+                    <img src="routine.svg" class="svg-icon svg-icon-xxl svg-icon-primary" alt="script" />
+                        @* @if (ThemeService.IsDarkMode)
+                        {
+                            <span class="icon-mask icon-dark-mode text-primary" style="width: 48px; height: 48px; display: inline-block;" aria-hidden="true" title="Dark"></span>
+                        }
+                        else
+                        {
+                            <span class="icon-mask icon-light-mode text-primary" style="width: 48px; height: 48px; display: inline-block;" aria-hidden="true" title="Light"></span>
+                        } *@
+                    </div>
+                    <div class="btn-group w-100 px-2" role="group" aria-label="Theme selection">
+                        <input type="radio" class="btn-check" name="themeToggle" id="themeToggleLight" value="Light" autocomplete="off" checked="@(!ThemeService.IsDarkMode)" @onchange="@(() => SetTheme("Light"))">
+                        <label class="btn btn-outline-secondary btn-sm rounded-start-pill d-flex align-items-center justify-content-center" for="themeToggleLight">
+                            <span class="icon-mask icon-light-mode svg-icon-md me-1" aria-hidden="true"></span>
+                            <span>@TransliterationService.GetDisplayText("Ёруғ")</span>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="themeToggle" id="themeToggleDark" value="Dark" autocomplete="off" checked="@(ThemeService.IsDarkMode)" @onchange="@(() => SetTheme("Dark"))">
+                        <label class="btn btn-outline-secondary btn-sm rounded-end-pill d-flex align-items-center justify-content-center" for="themeToggleDark">
+                            <span class="icon-mask icon-dark-mode svg-icon-md me-1" aria-hidden="true"></span>
+                            <span>@TransliterationService.GetDisplayText("Тунги")</span>
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="col d-flex flex-column">
             <div class="card flex-fill align-items-center justify-content-center rounded-pill">
-                <a href="favorites" class="card-text text-black fw-bold">
-                    <div class="card-body" style="min-height: 180px;">
-                        <div class="text-center"><img src="heart_check.png" alt="target" width="72" height="72" /></div>
-                        @TransliterationService.GetDisplayText("Сиз белгилаган оятлар")
+                <div class="card-body" style="min-height: 130px;">
+                    <div class="text-center mb-2">
+                        <img src="translate.svg" class="svg-icon svg-icon-xxl svg-icon-primary" alt="script" />
                     </div>
-                </a>
+                    <div class="btn-group w-100 px-2" role="group" aria-label="Script selection">
+                        <input type="radio" class="btn-check" name="scriptToggle" id="scriptToggleCyrillic" value="Cyrillic" autocomplete="off" checked="@(!TransliterationService.IsLatinScriptSelected)" @onchange="@(() => SetScript("Cyrillic"))">
+                        <label class="btn btn-outline-secondary btn-sm rounded-start-pill" for="scriptToggleCyrillic">Кириллча</label>
+
+                        <input type="radio" class="btn-check" name="scriptToggle" id="scriptToggleLatin" value="Latin" autocomplete="off" checked="@(TransliterationService.IsLatinScriptSelected)" @onchange="@(() => SetScript("Latin"))">
+                        <label class="btn btn-outline-secondary btn-sm rounded-end-pill" for="scriptToggleLatin">Lotincha</label>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -71,18 +131,106 @@
     <div class="card my-3 rounded-pill">
         <div class="card-body">
             <div class="d-flex justify-content-evenly">
-                <a href="https://www.facebook.com/groups/178024384287085/?ref=share&mibextid=SDPelY"><img src="facebook.svg" width="48" height="48" class="mx-2" alt="facebook" /></a>
+                <a href="https://www.facebook.com/groups/178024384287085/?ref=share&mibextid=SDPelY"><img src="facebook.svg" class="mx-2 svg-icon svg-icon-xl" alt="facebook" /></a>
                 @* <a href=""><img src="instagram.svg" width="32px" height="32px" class="mx-2" alt="instagram" /></a> *@
-                <a href="https://t.me/Quron_izidan"><img src="telegram.svg" width="48" height="48" class="mx-2" alt="telegram" /></a>
+                <a href="https://t.me/Quron_izidan"><img src="telegram.svg" class="mx-2 svg-icon svg-icon-xl" alt="telegram" /></a>
             </div>
         </div>
     </div>
 
 </div>
 @code {
+    private int collectionsCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        TransliterationService.OnScriptChanged += HandleScriptChanged;
+        ThemeService.OnThemeChanged += HandleThemeChanged;
+        
+        // Migrate favorites to collections if needed
+        await MigrateFavoritesIfNeededAsync();
+        
+        // Load collections count in background
+        _ = LoadCollectionsCountAsync();
+    }
+
+    private async Task MigrateFavoritesIfNeededAsync()
+    {
+        try
+        {
+            if (db.NeedsFavoritesMigration())
+            {
+                Debug.WriteLine("Starting favorites migration...");
+                
+                // Create default favorites collection
+                var favCollectionId = await db.CreateDefaultFavoritesCollectionAsync();
+                Debug.WriteLine($"Favorites collection ID: {favCollectionId}");
+                
+                // Migrate all favorite ayas to the collection
+                var migratedCount = await db.MigrateFavoritesToCollectionAsync(favCollectionId);
+                Debug.WriteLine($"Migrated {migratedCount} favorites to collection");
+                
+                // Mark migration as complete
+                db.MarkFavoritesMigrationComplete();
+                Debug.WriteLine("Favorites migration completed successfully");
+            }
+            else
+            {
+                Debug.WriteLine("Favorites already migrated, skipping");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error during favorites migration: {ex.Message}");
+        }
+    }
+
+    private void HandleScriptChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleThemeChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void SetTheme(string theme)
+    {
+        ThemeService.CurrentTheme = theme;
+        StateHasChanged();
+    }
+
+    private void SetScript(string script)
+    {
+        Preferences.Set(PreferenceKeys.UzbekScript, script);
+        TransliterationService.NotifyScriptChanged();
+        StateHasChanged();
+    }
+
+    private async Task LoadCollectionsCountAsync()
+    {
+        try
+        {
+            var collections = await db.GetBookmarkCollectionsAsync();
+            collectionsCount = collections?.Count ?? 0;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error loading collections count: {ex.Message}");
+        }
+    }
+
     private string EncodeSearchTerm(string term)
     {
         return HttpUtility.UrlEncode(term);
+    }
+
+    public void Dispose()
+    {
+        TransliterationService.OnScriptChanged -= HandleScriptChanged;
+        ThemeService.OnThemeChanged -= HandleThemeChanged;
     }
 }
 <script>

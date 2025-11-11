@@ -1,29 +1,59 @@
 ﻿@page "/notes"
 @using QuranBlazor.Data
 @using System.Diagnostics
+@using QuranBlazor.Services
 @inject DbContext db
 @inject DialogService Dialog
 @inject IJSRuntime JsRuntime
+@inject NavigationManager NavigationManager
+@implements IDisposable
 
 <div class="text-white text-center mb-3">
-    <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white"><img src="note_alt_white.png" width="48" height="48" class="mx-2" /> @TransliterationService.GetDisplayText("Қайдлар")</h3>
+    <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white"><img src="edit_note.svg" class="svg-icon svg-icon-xl svg-icon-white mx-2" alt="" /> @TransliterationService.GetDisplayText("Қайдлар")</h3>
 </div>
-@if (notes != null)
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@TransliterationService.GetDisplayText("Юкланмоқда...")</span>
+        </div>
+    </div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger text-center">@TransliterationService.GetDisplayText(errorMessage)</div>
+}
+else if (notes == null || !notes.Any())
+{
+    <div class="text-center my-5 px-3">
+        <img src="edit_note.svg" class="svg-icon svg-icon-xxl mb-3 opacity-50 svg-icon-light" alt="" />
+        <h4 class="text-muted">@TransliterationService.GetDisplayText("Сизда ҳали қайдлар йўқ")</h4>
+        <p class="text-muted">@TransliterationService.GetDisplayText("Оятларга қайд қўшиш учун қайд белгисига босинг")</p>
+        <a href="/suras" class="btn btn-primary rounded-pill mt-3">@TransliterationService.GetDisplayText("Суралар саҳифасига ўтинг")</a>
+    </div>
+}
+else
 {
     @foreach (Note note in notes)
     {
         <div class="row my-2">
             <div class="col">
                 <div class="card bg-light bg-gradient rounded-pill">
-                    <div class="card-body py-1">
+                    <div class="card-body">
                         <div class="hstack">
-                            <div class="vstack">
-                                <a href="AyaList?SuraId=@note.SuraId#@note.AyaId" class="text-black" title="@TransliterationService.GetDisplayText("Оятга ўтиш")">
+                            <div class="vstack flex-grow-1">
+                                <a href="AyaList?SuraId=@note.SuraId#@note.AyaId" class="text-primary" title="@TransliterationService.GetDisplayText("Оятга ўтиш")">
                                     <h3 class="card-title mb-0">@TransliterationService.GetDisplayText(note.Title)</h3>
-                                    <h4 class="tab-content fs-6">@TransliterationService.GetDisplayText(note.Content)</h4>
+                                    <h4 class="tab-content fs-6 mb-0">@TransliterationService.GetDisplayText(note.Content)</h4>
                                 </a>
                             </div>
-                            <span class="p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="() => DeleteNote(note)"><img src="note_delete_black.png" width="48" height="48" class="mx-2" /></span>@* oi oi-trash *@
+                            <button type="button" class="btn btn-link px-2 py-0 fs-3 text-primary border-0" @onclick="() => EditNote(note)" aria-label="@TransliterationService.GetDisplayText("Қайдни таҳрирлаш")" title="@TransliterationService.GetDisplayText("Қайдни таҳрирлаш")">
+                                <span class="icon-mask icon-edit svg-icon-lg me-2" title="Edit"></span>
+                            </button>
+                            <button type="button" class="btn btn-link px-2 py-0 fs-3 text-primary border-0" @onclick="() => DeleteNote(note)" aria-label="@TransliterationService.GetDisplayText("Қайдни ўчириш")" title="@TransliterationService.GetDisplayText("Қайдни ўчириш")">
+                                <span class="icon-mask icon-delete svg-icon-lg me-2" title="Delete"></span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -34,28 +64,99 @@
 
 @code {
     private List<Note> notes { get; set; }
+    private bool isLoading = true;
+    private string errorMessage;
+
     protected override async Task OnInitializedAsync()
     {
-        notes = await db.GetNotesAsync().ConfigureAwait(false);
+        TransliterationService.OnScriptChanged += HandleScriptChanged;
+        await LoadNotesAsync();
     }
 
-    private async Task DeleteNote(Note note)
+    private void HandleScriptChanged()
     {
-        var result = await DisplayConfirm("Ҳақиқатан ҳам ўчирмоқчимисиз?", "Сиз белгилаган қайд ўчирилади. Ишончингиз комилми?", "Ҳа", "Йўқ").ConfigureAwait(false);
-        if (result)
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadNotesAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
         {
-            var deleted = await db.DeleteNoteAsync(note.AyaId, note.SuraId);
-            if (deleted > 0)
+            notes = await db.GetNotesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Маълумотларни юклашда хатолик. Илтимос, қайта уриниб кўринг.";
+            Debug.WriteLine($"Error loading notes: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task EditNote(Note note)
+    {
+        var updatedContent = await Dialog.DisplayPrompt(
+            TransliterationService.GetDisplayText("Қайдни таҳрирлаш"),
+            TransliterationService.GetDisplayText("Қайд матнини янгиланг"),
+            TransliterationService.GetDisplayText("Сақлаш"),
+            TransliterationService.GetDisplayText("Бекор қилиш")
+        ).ConfigureAwait(false);
+
+        if (!string.IsNullOrWhiteSpace(updatedContent) && updatedContent != note.Content)
+        {
+            try
             {
-                var removed = notes.Remove(notes.Find(a => a.AyaId == note.AyaId && a.SuraId == note.SuraId));
-                Debug.WriteLine($"Delete note result is {removed}");
-                MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Қайдлардан олиб ташланди")));
+                note.Content = updatedContent;
+                var result = await db.UpdateNoteAsync(note);
+                if (result > 0)
+                {
+                    await InvokeAsync(StateHasChanged);
+                    MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Қайд янгиланди")));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error updating note: {ex.Message}");
+                MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди")));
             }
         }
     }
 
-    private Task<bool> DisplayConfirm(string title, string message, string accept, string cancel)
+    private async Task DeleteNote(Note note)
     {
-        return Application.Current.MainPage.DisplayAlert(TransliterationService.GetDisplayText(title), TransliterationService.GetDisplayText(message), TransliterationService.GetDisplayText(accept), TransliterationService.GetDisplayText(cancel));
+        var result = await Dialog.DisplayConfirm(
+            TransliterationService.GetDisplayText("Ҳақиқатан ҳам ўчирмоқчимисиз?"),
+            TransliterationService.GetDisplayText("Сиз белгилаган қайд ўчирилади. Ишончингиз комилми?"),
+            TransliterationService.GetDisplayText("Ҳа"),
+            TransliterationService.GetDisplayText("Йўқ")
+        ).ConfigureAwait(false);
+
+        if (result)
+        {
+            try
+            {
+                var deleted = await db.DeleteNoteAsync(note.AyaId, note.SuraId);
+                if (deleted > 0)
+                {
+                    var removed = notes.Remove(notes.Find(a => a.AyaId == note.AyaId && a.SuraId == note.SuraId));
+                    Debug.WriteLine($"Delete note result is {removed}");
+                    MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Қайдлардан олиб ташланди")));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error deleting note: {ex.Message}");
+                MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди")));
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        TransliterationService.OnScriptChanged -= HandleScriptChanged;
     }
 }

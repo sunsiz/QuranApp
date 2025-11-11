@@ -83,3 +83,45 @@ function updateUrlWithTopVisibleAyaFragmentForAyaList() {
         }
     }
 }
+
+// Keyboard navigation helper for buttons
+function enableKeyboardNavigation() {
+    // Add Enter/Space key handlers to elements with role="button"
+    document.addEventListener('keydown', function (event) {
+        const target = event.target;
+        
+        // Handle Space/Enter on elements with role="button" that aren't actual buttons
+        if (target.getAttribute('role') === 'button' && 
+            (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            target.click();
+        }
+        
+        // Handle Escape key to close modals if present
+        if (event.key === 'Escape') {
+            const modal = document.querySelector('.modal.show');
+            if (modal) {
+                const closeBtn = modal.querySelector('.btn-close, [data-bs-dismiss="modal"]');
+                if (closeBtn) closeBtn.click();
+            }
+        }
+    });
+    
+    // Improve focus visibility for keyboard navigation
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Tab') {
+            document.body.classList.add('keyboard-navigation');
+        }
+    });
+    
+    document.addEventListener('mousedown', function() {
+        document.body.classList.remove('keyboard-navigation');
+    });
+}
+
+// Initialize keyboard navigation on load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', enableKeyboardNavigation);
+} else {
+    enableKeyboardNavigation();
+}

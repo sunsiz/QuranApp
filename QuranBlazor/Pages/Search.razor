@@ -1,8 +1,11 @@
 ﻿@page "/search"
 @using System.Text.RegularExpressions
 @using System.Web
+@using QuranBlazor.Services
+@using Microsoft.AspNetCore.Components.Web.Virtualization
 @inject DbContext db
 @inject NavigationManager Navigation
+@implements IDisposable
 
 @code {
     [Parameter]
@@ -10,6 +13,10 @@
     public string KeyWord { get; set; }
     private string _effectiveKeyword;
     private string _decodedKeyWordForDisplay;
+    private IEnumerable<Aya> _ayas;
+    private bool _isLoading = false;
+    private List<string> searchHistory = new();
+    private bool showHistory = false;
 
     protected override void OnParametersSet()
     {
@@ -18,6 +25,9 @@
 
         if (!string.IsNullOrEmpty(_decodedKeyWordForDisplay))
         {
+            // Add to search history
+            SearchHistoryService.AddSearch(_decodedKeyWordForDisplay);
+            
             // For DB search, always convert to lowercase Cyrillic
             // First, determine if the input is likely Latin to decide if ToCyrillic is needed
             bool isInputLatin = TransliterationService.IsLatinScriptSelected || TransliterationService.IsPotentiallyLatin(_decodedKeyWordForDisplay); // Consider current script or guess
@@ -37,8 +47,37 @@
         _ayas = null; // Reset to trigger re-fetch
         _highlightRegex = null; // Reset regex
     }
-    private IEnumerable<Aya> _ayas;
-    private IEnumerable<Aya> Ayas => _ayas ??= db.GetSearchResult(_effectiveKeyword);
+    
+    protected override async Task OnInitializedAsync()
+    {
+        TransliterationService.OnScriptChanged += HandleScriptChanged;
+        searchHistory = SearchHistoryService.GetHistory();
+    }
+
+    private void HandleScriptChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+    
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        if (!string.IsNullOrWhiteSpace(KeyWord))
+        {
+            _isLoading = true;
+            await GetAyasAsync();
+            _isLoading = false;
+        }
+    }
+    
+    private async Task<IEnumerable<Aya>> GetAyasAsync()
+    {
+        if (_ayas == null && !string.IsNullOrWhiteSpace(_effectiveKeyword))
+        {
+            _ayas = await db.GetSearchResult(_effectiveKeyword);
+        }
+        return _ayas;
+    }
     private Regex _highlightRegex;
     private string arabicStyle => $"font-size:{Preferences.Get("ArabicFontSize", 16)}px";
     private string textStyle => $"font-size:{Preferences.Get("TranslateFontSize", 14)}px";
@@ -129,28 +168,82 @@
             return toLatin ? TransliterationService.ToLatin(comment) : comment;
         }
     }
+
+    private void ClearHistory()
+    {
+        SearchHistoryService.ClearHistory();
+        searchHistory.Clear();
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        TransliterationService.OnScriptChanged -= HandleScriptChanged;
+    }
 }
 
 
 <div class="container-fluid my-3">
     @if (string.IsNullOrEmpty(KeyWord))
     {
-        @* <label class="text-danger-emphasis my-3">"@KeyWord" is not valid search keyword, please try again.</label> *@
-        <div class="mx-1 shadow-lg bg-light bg-gradient rounded-pill text-center">
+        <div class="mx-1 shadow-lg bg-light bg-gradient rounded-pill text-center position-relative">
             <form class="d-flex" action="/Search" method="get" onsubmit="return encodeSearchTerm()">
-                <input class="form-control rounded-pill primary-color p-3" id="floatingSearch" placeholder="@TransliterationService.GetDisplayText("Излаш")" aria-label="Излаш" name="KeyWord">
-                <button class="btn rounded-pill p-0 fw-bold primary-color" style="font-size: 36px; margin-left: -66px;" type="submit"><img src="search.png" width="48" height="48" class="mx-2" alt="search" /></button>
+                <input class="form-control rounded-pill primary-color p-3" 
+                       id="floatingSearch" 
+                       placeholder="@TransliterationService.GetDisplayText("Излаш")" 
+                       aria-label="Излаш" 
+                       name="KeyWord"
+                       @onfocus="() => showHistory = true"
+                       @onblur="() => Task.Delay(200).ContinueWith(_ => showHistory = false)">
+                <button class="btn rounded-pill p-0 fw-bold primary-color" style="font-size: 36px; margin-left: -66px;" type="submit">
+                    <img src="search.svg" class="svg-icon svg-icon-xl mx-2" alt="search" />
+                </button>
             </form>
+            
+            @* Search History Dropdown *@
+            @if (showHistory && searchHistory.Any())
+            {
+                <div class="position-absolute w-100 mt-2 shadow-lg" style="z-index: 1000; max-height: 300px; overflow-y: auto;">
+                    <div class="list-group rounded-3">
+                        @foreach (var term in searchHistory.Take(5))
+                        {
+                            <a href="/Search?KeyWord=@(Uri.EscapeDataString(term))" 
+                               class="list-group-item list-group-item-action d-flex align-items-center">
+                                <span class="me-2">🕐</span>
+                                <span class="flex-grow-1">@TransliterationService.GetDisplayText(term)</span>
+                            </a>
+                        }
+                        @if (searchHistory.Count > 0)
+                        {
+                            <button type="button" class="list-group-item list-group-item-action text-danger text-center" 
+                                    @onclick="ClearHistory">
+                                <small>@TransliterationService.GetDisplayText("Тарихни тозалаш")</small>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
         </div>
     }
     else
     {
-        <div class="mx-1"><h3 class="p-3 shadow-lg w-100 bg-light bg-gradient rounded-pill text-center">@TransliterationService.GetDisplayText("Излаш натижалари:") "@TransliterationService.GetDisplayText(_decodedKeyWordForDisplay)" @Ayas.Count() @TransliterationService.GetDisplayText("та жойда топилди.")</h3></div>
-    }
-    @if (Ayas != null)
-    {
-        @foreach (Aya aya in Ayas)
+        @if (_isLoading)
         {
+            <div class="text-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">@TransliterationService.GetDisplayText("Юкланмоқда...")</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="mx-1"><h3 class="p-3 shadow-lg w-100 bg-light bg-gradient rounded-pill text-center">@TransliterationService.GetDisplayText("Излаш натижалари:") "@TransliterationService.GetDisplayText(_decodedKeyWordForDisplay)" - @(_ayas?.Count() ?? 0) @TransliterationService.GetDisplayText("та жойда топилди.")</h3></div>
+        }
+    }
+    @if (_ayas != null && _ayas.Any())
+    {
+        @* Use Virtualization for large result sets *@
+        <Virtualize Items="@_ayas.ToList()" Context="aya" OverscanCount="3">
             <div class="row my-3" id="@aya.AyaId">
                 <div class="col">
                     <div class="card bg-light bg-gradient">
@@ -158,7 +251,7 @@
                             <div class="vstack">
                                 <h5 class="card-title header-bg-color bg-gradient hstack rounded-3 gap-3 text-white">
                                     <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1">@($"{aya.SuraId}:{aya.AyaId}")</span>
-                                    <a class="oi oi-share ms-auto me-3 text-white stretched-link" title="@TransliterationService.GetDisplayText("Оятга ўтиш")" href="AyaList?SuraId=@aya.SuraId#@aya.AyaId"></a>@* &SuraName=@db.GetSuraName(aya.SuraId) *@
+                                    <a class="oi oi-share ms-auto me-3 text-white stretched-link" title="@TransliterationService.GetDisplayText("Оятга ўтиш")" href="AyaList?SuraId=@aya.SuraId#@aya.AyaId"></a>
                                 </h5>
                                 <p class="arabic fs-3 fw-bold mb-0 me-2" style=@arabicStyle>@aya.Arabic</p>
                                 <p class="my-2" style=@textStyle>@((MarkupString)HighlightKeyword(aya.Text,false))</p><hr />
@@ -174,7 +267,15 @@
                     </div>
                 </div>
             </div>
-        }
+        </Virtualize>
+    }
+    else if (!string.IsNullOrEmpty(KeyWord))
+    {
+        <div class="text-center my-5 px-3">
+            <img src="search.svg" class="svg-icon svg-icon-xxl mb-3 opacity-50 svg-icon-light" alt="" />
+            <h4 class="text-muted">@TransliterationService.GetDisplayText("Ҳеч нарса топилмади")</h4>
+            <p class="text-muted">@TransliterationService.GetDisplayText("Бошқа калит сўз билан қидириб кўринг")</p>
+        </div>
     }
 </div>
 <script>

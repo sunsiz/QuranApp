@@ -1,0 +1,171 @@
+@page "/CollectionAyas"
+@using QuranBlazor.Data
+@using QuranBlazor.Services
+@inject DbContext db
+@inject NavigationManager NavigationManager
+@inject DialogService Dialog
+@implements IDisposable
+
+<div class="container-fluid my-3">
+    @if (collection != null)
+    {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-link p-0 me-3" @onclick="GoBack" aria-label="@TransliterationService.GetDisplayText("Орқага")">
+                    <span class="icon-mask icon-arrow_back svg-icon-lg me-2" title="Back"></span>
+                </button>
+                @if (!string.IsNullOrEmpty(collection.ColorCode))
+                {
+                    <span class="badge me-2" style="background-color: @collection.ColorCode; width: 20px; height: 20px;"></span>
+                }
+                <h3 class="mb-0">@TransliterationService.GetDisplayText(collection.Name)</h3>
+            </div>
+            <span class="badge bg-secondary">@(ayas?.Count ?? 0) @TransliterationService.GetDisplayText("та оят")</span>
+        </div>
+
+        @if (!string.IsNullOrEmpty(collection.Description))
+        {
+            <div class="alert alert-info mb-3">
+                @TransliterationService.GetDisplayText(collection.Description)
+            </div>
+        }
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">@TransliterationService.GetDisplayText("Юкланмоқда...")</span>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @TransliterationService.GetDisplayText(errorMessage)
+        </div>
+    }
+    else if (ayas == null || !ayas.Any())
+    {
+        <div class="text-center my-5 px-3">
+            <img src="collections_bookmark.svg" class="svg-icon svg-icon-xxl mb-3 opacity-50" alt="" />
+            <h4 class="text-muted">@TransliterationService.GetDisplayText("Бу тўпламда ҳали оятлар йўқ")</h4>
+            <p class="text-muted">@TransliterationService.GetDisplayText("Оятларни кўриш пайтида тўпламга қўшишингиз мумкин")</p>
+            <a href="/suras" class="btn btn-primary rounded-pill mt-3">@TransliterationService.GetDisplayText("Суралар саҳифасига ўтинг")</a>
+        </div>
+    }
+    else
+    {
+        @foreach (var aya in ayas)
+        {
+            <div class="row my-2">
+                <div class="col">
+                    <div class="card bg-light bg-gradient rounded-pill">
+                        <div class="card-body">
+                            <div class="hstack">
+                                <div class="vstack flex-grow-1">
+                                    <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="text-primary" title="@TransliterationService.GetDisplayText("Оятга ўтиш")">
+                                        <h3 class="card-title mb-0">@aya.SuraId. @TransliterationService.GetDisplayText(aya.SuraName), @aya.AyaId @TransliterationService.GetDisplayText("оят")</h3>
+                                        <h4 class="card-body p-0 mb-0 fs-6">@TransliterationService.GetDisplayText(aya.Text.Substring(0, Math.Min(aya.Text.Length, 50)))</h4>
+                                    </a>
+                                </div>
+                                <button type="button" class="btn btn-link px-2 py-0 fs-3 text-primary border-0" @onclick="() => RemoveFromCollection(aya)" aria-label="@TransliterationService.GetDisplayText("Тўпламдан олиб ташлаш")" title="@TransliterationService.GetDisplayText("Тўпламдан олиб ташлаш")">
+                                    <span class="icon-mask icon-heart_minus svg-icon-lg me-2" title="Remove from collection"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    public int CollectionId { get; set; }
+
+    private BookmarkCollection collection;
+    private List<FavoritesViewModel> ayas;
+    private bool isLoading = true;
+    private string errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        TransliterationService.OnScriptChanged += HandleScriptChanged;
+        await LoadDataAsync();
+    }
+
+    private void HandleScriptChanged()
+    {
+        StateHasChanged();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            collection = await db.GetBookmarkCollectionAsync(CollectionId);
+            if (collection == null)
+            {
+                errorMessage = "Тўплам топилмади";
+                return;
+            }
+
+            ayas = await db.GetAyasInCollectionAsync(CollectionId);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Маълумотларни юклашда хатолик. Илтимос, қайта уриниб кўринг.";
+            System.Diagnostics.Debug.WriteLine($"Error loading collection ayas: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RemoveFromCollection(FavoritesViewModel aya)
+    {
+        var result = await Dialog.DisplayConfirm(
+            TransliterationService.GetDisplayText("Ишончингиз комилми?"),
+            TransliterationService.GetDisplayText("Оятни тўпламдан олиб ташлайсизми?"),
+            TransliterationService.GetDisplayText("Ҳа"),
+            TransliterationService.GetDisplayText("Йўқ")
+        );
+
+        if (result)
+        {
+            try
+            {
+                // Get the actual Aya.Id from database
+                var ayaEntity = await db.GetAyaListAsync(aya.SuraId);
+                var targetAya = ayaEntity.FirstOrDefault(a => a.AyaId == aya.AyaId);
+                
+                if (targetAya != null)
+                {
+                    await db.RemoveAyaFromCollectionAsync(targetAya.Id, CollectionId);
+                    Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят муваффақиятли олиб ташланди"));
+                    await LoadDataAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error removing from collection: {ex.Message}");
+                Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди. Қайта уриниб кўринг."));
+            }
+        }
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/Collections");
+    }
+
+    public void Dispose()
+    {
+        TransliterationService.OnScriptChanged -= HandleScriptChanged;
+    }
+}

@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using QuranBlazor.Data;
+using QuranBlazor.Services;
 
 namespace QuranBlazor
 {
@@ -23,6 +24,8 @@ namespace QuranBlazor
             builder.Services.AddSingleton<DialogService>();
             // Register DBContext and the SQLite database
             builder.Services.AddScoped<DbContext>(s => ActivatorUtilities.CreateInstance<DbContext>(s, dbPath));
+            // Register ExportService
+            builder.Services.AddScoped<ExportService>();
             return builder.Build();
         }
     }

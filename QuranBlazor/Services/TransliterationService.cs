@@ -4,15 +4,28 @@ namespace QuranBlazor.Services
 {
     public static class TransliterationService
     {
+        private static readonly object _lock = new object();
+        private static readonly TransliterationCache _toLatinCache = new(1000);
+        private static readonly TransliterationCache _toCyrillicCache = new(1000);
+        
         public static event Action OnScriptChanged;
 
-        public static void NotifyScriptChanged() => OnScriptChanged?.Invoke();
+        public static void NotifyScriptChanged()
+        {
+            lock (_lock)
+            {
+                // Clear caches when script changes
+                _toLatinCache.Clear();
+                _toCyrillicCache.Clear();
+                OnScriptChanged?.Invoke();
+            }
+        }
 
         public static string GetDisplayText(string originalText) // Renamed parameter for clarity
         {
             if (string.IsNullOrEmpty(originalText)) return originalText;
 
-            string targetScript = Preferences.Get("UzbekScript", "Cyrillic");
+            string targetScript = Preferences.Get(PreferenceKeys.UzbekScript, PreferenceKeys.DefaultScript);
 
             // Basic heuristic: if it contains mostly Latin chars, assume it's Latin. Otherwise, assume Cyrillic.
             // This is imperfect. A more robust solution might involve more complex detection or context.
@@ -29,7 +42,7 @@ namespace QuranBlazor.Services
         }
 
         // To be used by components to know if they need to use ToCyrillic for search terms, for example
-        public static bool IsLatinScriptSelected => Preferences.Get("UzbekScript", "Cyrillic") == "Latin";
+        public static bool IsLatinScriptSelected => Preferences.Get(PreferenceKeys.UzbekScript, PreferenceKeys.DefaultScript) == "Latin";
 
         public static bool IsPotentiallyLatin(string text)
         {
@@ -84,57 +97,64 @@ namespace QuranBlazor.Services
         {
             if (string.IsNullOrEmpty(cyrillicText)) return cyrillicText;
 
-            var latinText = new StringBuilder(cyrillicText.Length);
-            foreach (char c in cyrillicText)
+            return _toLatinCache.GetOrAdd(cyrillicText, text =>
             {
-                if (CyrillicToLatinMap.TryGetValue(c, out var latinChar))
+                var latinText = new StringBuilder(text.Length);
+                foreach (char c in text)
                 {
-                    latinText.Append(latinChar);
+                    if (CyrillicToLatinMap.TryGetValue(c, out var latinChar))
+                    {
+                        latinText.Append(latinChar);
+                    }
+                    else
+                    {
+                        latinText.Append(c); // Append original if no mapping (e.g., punctuation)
+                    }
                 }
-                else
-                {
-                    latinText.Append(c); // Append original if no mapping (e.g., punctuation)
-                }
-            }
-            return latinText.ToString();
+                return latinText.ToString();
+            });
         }
 
         // Add ToCyrillic if needed for search keyword conversion
         public static string ToCyrillic(string latinText)
         {
             if (string.IsNullOrEmpty(latinText)) return latinText;
-            var cyrillicText = new StringBuilder(latinText.Length);
-            int i = 0;
-            while (i < latinText.Length)
+
+            return _toCyrillicCache.GetOrAdd(latinText, text =>
             {
-                bool matched = false;
-                // Check for 2-character sequences first (e.g., "Oʻ", "Gʻ", "Sh", "Ch")
-                if (i + 1 < latinText.Length)
+                var cyrillicText = new StringBuilder(text.Length);
+                int i = 0;
+                while (i < text.Length)
                 {
-                    string twoCharSeq = latinText.Substring(i, 2);
-                    if (LatinToCyrillicMap.TryGetValue(twoCharSeq, out var cyrTwoChar))
+                    bool matched = false;
+                    // Check for 2-character sequences first (e.g., "Oʻ", "Gʻ", "Sh", "Ch")
+                    if (i + 1 < text.Length)
                     {
-                        cyrillicText.Append(cyrTwoChar);
-                        i += 2;
-                        matched = true;
+                        string twoCharSeq = text.Substring(i, 2);
+                        if (LatinToCyrillicMap.TryGetValue(twoCharSeq, out var cyrTwoChar))
+                        {
+                            cyrillicText.Append(cyrTwoChar);
+                            i += 2;
+                            matched = true;
+                        }
+                    }
+                    // If no 2-character match, check for 1-character
+                    if (!matched)
+                    {
+                        string oneCharSeq = text.Substring(i, 1);
+                        if (LatinToCyrillicMap.TryGetValue(oneCharSeq, out var cyrOneChar))
+                        {
+                            cyrillicText.Append(cyrOneChar);
+                        }
+                        else
+                        {
+                            cyrillicText.Append(oneCharSeq); // Append original if no mapping
+                        }
+                        i += 1;
                     }
                 }
-                // If no 2-character match, check for 1-character
-                if (!matched)
-                {
-                    string oneCharSeq = latinText.Substring(i, 1);
-                    if (LatinToCyrillicMap.TryGetValue(oneCharSeq, out var cyrOneChar))
-                    {
-                        cyrillicText.Append(cyrOneChar);
-                    }
-                    else
-                    {
-                        cyrillicText.Append(oneCharSeq); // Append original if no mapping
-                    }
-                    i += 1;
-                }
-            }
-            return cyrillicText.ToString();
+                return cyrillicText.ToString();
+            });
         }
     }
 }

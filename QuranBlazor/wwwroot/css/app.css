@@ -1,7 +1,119 @@
 ﻿@import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
 
+/* ============================================
+   ANIMATIONS & TRANSITIONS
+   ============================================ */
+
+/* Smooth page transitions */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInBackdrop {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes staggerFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Apply fade-in to page content */
+.container-fluid {
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* Modal animations */
+.modal-fade-in {
+    animation: fadeInBackdrop 0.3s ease-out;
+}
+
+.modal-slide-up .modal-content {
+    animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Card entrance animations */
+.card {
+    animation: fadeIn 0.5s ease-out;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Button press animation */
+.btn {
+    transition: all 0.2s ease;
+}
+
+.btn:active {
+    transform: scale(0.96);
+}
+
+/* List item stagger animation */
+.row.my-3 {
+    animation: staggerFadeIn 0.5s ease-out backwards;
+}
+
+.row.my-3:nth-child(1) { animation-delay: 0.05s; }
+.row.my-3:nth-child(2) { animation-delay: 0.1s; }
+.row.my-3:nth-child(3) { animation-delay: 0.15s; }
+.row.my-3:nth-child(4) { animation-delay: 0.2s; }
+.row.my-3:nth-child(5) { animation-delay: 0.25s; }
+
+/* Smooth scroll behavior */
+html {
+    scroll-behavior: smooth;
+}
+
+/* ============================================
+   GLOBAL SMOOTH TRANSITIONS
+   ============================================ */
+
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* Smooth theme transitions - apply to elements that change with theme */
+.page,
+.card,
+.sidebar,
+.top-row,
+.btn,
+.navbar,
+.nav-link {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 h1:focus {
@@ -9,14 +121,32 @@ h1:focus {
 }
 
 a, .btn-link {
-    color: #0071c1;
+    color: #8B5A3C;
     text-decoration: none;
 }
 
 .btn-primary {
     color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    background-color: var(--primary-color);
+    background-image: var(--header-bg-gradient);
+    border-color: var(--primary-color);
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: var(--header-bg-color);
+    border-color: var(--header-bg-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .content {
@@ -64,6 +194,77 @@ a, .btn-link {
     content: "An error has occurred."
 }
 
+/* ============================================
+   TYPOGRAPHY
+   ============================================ */
+
+/* Base font size adjustments */
+body {
+    font-size: 15px; /* Increased from default 14px for better mobile readability */
+    line-height: 1.6;
+}
+
+/* Heading hierarchy with stronger weights */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 700; /* Bolder for stronger visual hierarchy */
+    line-height: 1.3;
+    margin-bottom: 0.75rem;
+}
+
+h1 {
+    font-size: 2.25rem; /* ~36px */
+}
+
+h2 {
+    font-size: 1.875rem; /* ~30px */
+}
+
+h3 {
+    font-size: 1.5rem; /* ~24px */
+}
+
+h4 {
+    font-size: 1.25rem; /* ~20px */
+}
+
+h5 {
+    font-size: 1.125rem; /* ~18px */
+}
+
+h6 {
+    font-size: 1rem; /* ~16px */
+}
+
+/* Card titles should be prominent */
+.card-title {
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    body {
+        font-size: 16px; /* Slightly larger on mobile for comfort */
+    }
+    
+    h1 {
+        font-size: 1.875rem; /* ~30px on mobile */
+    }
+    
+    h2 {
+        font-size: 1.625rem; /* ~26px */
+    }
+    
+    h3 {
+        font-size: 1.375rem; /* ~22px */
+    }
+}
+
+/* Strong emphasis for important text */
+.fw-bold, strong, b {
+    font-weight: 700;
+}
+
 .status-bar-safe-area {
     display: none;
 }
@@ -86,6 +287,7 @@ a, .btn-link {
 .arabic {
     font-family: 'Arabic Typesetting', Latif, 'Traditional Arabic','Droid Naskh', 'Calibri', Arial;
     direction: rtl;
+    margin-bottom: 0%;
 }
 /* Use a more specific selector if possible */
 *[id] {
@@ -134,4 +336,906 @@ a, .btn-link {
 }
 .rounded-pill {
     border-radius: 1.5rem !important;
+}
+
+/* ============================================
+   DARK MODE STYLES
+   ============================================ */
+
+/* CSS Variables for theming */
+:root {
+    --background-color: #fff4e7;
+    --text-color: #1a1a1a;
+    --card-bg-color: #ffffff;
+    --card-bg-gradient: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    --header-bg-color: #6B4423;
+    --header-bg-gradient: linear-gradient(135deg, #a06846 0%, #a16a3d 100%);
+    --card-accent-color: #B8895D;
+    --primary-color: #8B5A3C;
+    --border-color: #e9ecef;
+    --muted-text-color: #6c757d;
+    --link-color: #0066cc;
+    --search-highlight-bg: #28a745;
+    --search-highlight-text: #ffffff;
+    --sidebar-bg: #E8D5C4;
+    --sidebar-bg-gradient: linear-gradient(180deg, #f8f5f2 0%, #f5efe9 50%, #f5eee6 100%);
+    --alert-danger-bg: #f8d7da;
+    --alert-danger-border: #f5c6cb;
+    --alert-danger-text: #721c24;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+    --input-bg: #ffffff;
+    --input-border: #dee2e6;
+    --input-placeholder: #999999;
+    --aya-number-bg: #8B5A3C;
+    --aya-number-text: #ffffff;
+    --accent-gold: #C9A868;
+    /* Icon filters */
+    --icon-filter-primary: invert(39%) sepia(7%) saturate(3240%) hue-rotate(339deg) brightness(92%) contrast(84%);
+    --icon-filter-light: brightness(0) invert(1);
+    --icon-filter: none;
+}
+
+/* Dark theme variables - Softer colors for better readability */
+.dark-theme {
+    --background-color: #1a1a1a;
+    --text-color: #e8e8e8;
+    --card-bg-color: #2a2a2a;
+    --card-bg-gradient: linear-gradient(135deg, #303030 0%, #252525 100%);
+    --header-bg-color: #4a3a28;
+    --header-bg-gradient: linear-gradient(135deg, #30261c 0%, #2e261b 100%);
+    --card-accent-color: #473524;/*#9B7654;*/
+    --primary-color: #B8895D;
+    --border-color: #3a3a3a;
+    --muted-text-color: #b0b0b0;
+    --link-color: #7db8ec;
+    --search-highlight-bg: #48c774;
+    --search-highlight-text: #1a1a1a;
+    --sidebar-bg: #8A6C50;
+    --sidebar-bg-gradient: linear-gradient(180deg, #30261c 0%, #251f19 50%, #2e261b 100%);
+    --alert-danger-bg: #4d2f2f;
+    --alert-danger-border: #7d4649;
+    --alert-danger-text: #f8c4c4;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
+    --input-bg: #1a1a1a;
+    --input-border: #333333;
+    --input-placeholder: #666666;
+    /* In dark mode, white icons become bright */
+    --icon-filter: brightness(0) invert(1);
+    --icon-filter-primary: brightness(0) invert(1);
+    --aya-number-bg: #2d2d2d;
+    --aya-number-text: #C9A868;
+    --accent-gold: #D4B675;
+}
+
+/* Apply theme variables */
+html, body {
+    background-color: var(--background-color) !important;
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.container, .container-fluid {
+    background-color: transparent;/*var(--background-color);*/
+}
+
+.dark-theme {
+    background-color: var(--background-color) !important;
+}
+
+.dark-theme body,
+.dark-theme .blazor-body {
+    background-color: var(--background-color) !important;
+}
+
+.bg-light {
+    background-color: var(--card-bg-color) !important;
+}
+
+.bg-gradient {
+    background-image: var(--card-bg-gradient) !important;
+}
+
+.card {
+    background-color: var(--card-bg-color);
+    border-color: var(--border-color);
+    transition: all 0.3s ease;
+}
+
+/* Card hover effects for interactive cards */
+.card:has(a) {
+    cursor: pointer;
+}
+
+.card:has(a):hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Subtle hover for non-link cards */
+.card:not(:has(a)):hover {
+    box-shadow: var(--shadow-md);
+}
+
+/* Override Bootstrap defaults for dark mode */
+.dark-theme {
+    color-scheme: dark;
+}
+/* .dark-theme a,  */.dark-theme .text-primary {
+    color: var(--text-color)!important;
+    text-decoration: none;
+}
+.dark-theme .card,
+.dark-theme .bg-light {
+    background-color: var(--card-bg-color) !important;
+    color: var(--text-color) !important;
+}
+
+.dark-theme .bg-gradient {
+    background-image: var(--card-bg-gradient) !important;
+}
+
+/* Fix Bootstrap text utilities in dark mode */
+.dark-theme .text-dark {
+    color: var(--text-color) !important;
+}
+
+.dark-theme .text-body {
+    color: var(--text-color) !important;
+}
+
+/* Fix button colors in dark mode */
+.dark-theme .btn {
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+.dark-theme .btn-light {
+    background-color: var(--card-bg-color);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.dark-theme .btn-light:hover {
+    background-color: var(--header-bg-color);
+    border-color: var(--primary-color);
+}
+.btn-check:checked{
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+.dark-theme .btn-check:checked{
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+/* List group items in dark mode */
+.dark-theme .list-group-item {
+    background-color: var(--card-bg-color);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.dark-theme .list-group-item:hover {
+    background-color: var(--header-bg-color);
+}
+
+/* Modal theming */
+.dark-theme .modal-content {
+    background-color: var(--card-bg-color);
+    color: var(--text-color);
+}
+
+.dark-theme .modal-header,
+.dark-theme .modal-footer {
+    border-color: var(--border-color);
+}
+
+/* Dropdown theming */
+.dark-theme .dropdown-menu {
+    background-color: var(--card-bg-color);
+    border-color: var(--border-color);
+}
+
+.dark-theme .dropdown-item {
+    color: var(--text-color);
+}
+
+.dark-theme .dropdown-item:hover {
+    background-color: var(--header-bg-color);
+    color: white;
+}
+
+/* Table theming */
+.dark-theme table {
+    color: var(--text-color);
+}
+
+.dark-theme .table {
+    --bs-table-bg: var(--card-bg-color);
+    --bs-table-border-color: var(--border-color);
+}
+
+.dark-theme .table-striped > tbody > tr:nth-of-type(odd) > * {
+    --bs-table-bg-type: rgba(255, 255, 255, 0.02);
+}
+
+/* Navbar theming */
+.dark-theme .navbar-light {
+    background-color: var(--header-bg-color) !important;
+}
+
+.dark-theme .navbar-light .navbar-toggler {
+    border-color: var(--border-color);
+}
+
+.dark-theme .navbar-light .navbar-nav .nav-link {
+    color: white !important;
+}
+
+/* Badge theming */
+.dark-theme .badge {
+    color: white;
+}
+
+.dark-theme .badge.bg-secondary {
+    background-color: var(--muted-text-color) !important;
+}
+
+.card-bg-color {
+    background-color: var(--card-accent-color) !important;
+}
+
+.header-bg-color {
+    background-color: var(--header-bg-color) !important;
+}
+
+.primary-color {
+    color: var(--primary-color) !important;
+}
+
+.text-muted {
+    color: var(--muted-text-color) !important;
+}
+
+.text-primary {
+    color: var(--primary-color) !important;
+}
+
+a {
+    color: var(--link-color);
+}
+
+    a.text-primary {
+        color: var(--primary-color) !important;
+        text-decoration: none;
+    }
+
+.search-term {
+    background-color: var(--search-highlight-bg);
+    color: var(--search-highlight-text);
+}
+
+.alert-danger {
+    background-color: var(--alert-danger-bg);
+    border-color: var(--alert-danger-border);
+    color: var(--alert-danger-text);
+}
+
+.form-control {
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border-color: var(--input-border);
+}
+
+.form-control::placeholder {
+    color: var(--input-placeholder);
+    opacity: 0.7;
+}
+
+.form-control:focus {
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(212, 165, 116, 0.25);
+}
+
+/* Search bar specific styling */
+.dark-theme .form-control {
+    background-color: var(--card-bg-color);
+    border: 2px solid var(--border-color);
+}
+
+.dark-theme .form-control::placeholder {
+    color: var(--muted-text-color);
+    opacity: 0.8;
+}
+
+.dark-theme .form-control:focus {
+    background-color: var(--card-bg-color);
+    border-color: var(--primary-color);
+}
+
+.sidebar {
+    background: var(--sidebar-bg-gradient) !important;
+}
+
+.dark-theme .sidebar {
+    background: var(--sidebar-bg-gradient) !important;
+}
+
+/* Dark mode adjustments for specific elements */
+.dark-theme .card-title,
+.dark-theme .card-text,
+.dark-theme h1, .dark-theme h2, .dark-theme h3,
+.dark-theme h4, .dark-theme h5, .dark-theme h6 {
+    color: var(--text-color);
+}
+
+/* Card title in Aya cards needs more contrast */
+/* .dark-theme .card-title {
+    color: var(--primary-color) !important;
+    font-weight: 600;
+} */
+
+/* Regular card text */
+.dark-theme .card-text {
+    color: var(--text-color) !important;
+}
+
+/* Badge theming for consistency */
+.badge.bg-primary {
+    background: var(--header-bg-gradient) !important;
+    color: white;
+    border: none;
+}
+
+.dark-theme .badge.bg-primary {
+    background: var(--primary-color) !important;
+    color: white;
+}
+
+.dark-theme .badge.bg-secondary {
+    background-color: #505050 !important;
+    color: var(--text-color);
+}
+
+/* Button theming */
+.btn {
+    transition: all 0.3s ease;
+}
+
+.btn-link {
+    color: var(--text-color);
+}
+
+.btn-link:hover {
+    color: var(--primary-color);
+}
+
+/* Ensure all backgrounds respect theme */
+.dark-theme .rounded-pill {
+    background-color: var(--card-bg-color);
+}
+
+.dark-theme .bg-gradient {
+    background-image: var(--card-bg-gradient) !important;
+}
+
+/* Icon buttons in dark mode */
+.dark-theme img[src*="black.png"] {
+    filter: invert(1) brightness(0.9);
+}
+
+/* Card accents */
+.card-bg-color {
+    color: white;
+}
+
+/* Spinner theming */
+.spinner-border {
+    color: var(--primary-color);
+}
+
+.text-primary {
+    color: var(--primary-color) !important;
+}
+
+.text-success {
+    color: var(--search-highlight-bg) !important;
+}
+
+/* Outline button styling */
+.btn-outline-primary {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    border-width: 2px;
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #ffffff;
+}
+
+.dark-theme .btn-outline-primary {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.dark-theme .btn-outline-primary:hover,
+.dark-theme .btn-outline-primary.active {
+    background-color: var(--primary-color);
+    color: #ffffff;
+}
+
+/* Selected/toggle button styling for radio groups and button groups
+   Applies primary background to the selected button (works with
+   <input class="btn-check"> + <label class="btn"> pattern and .btn-group .btn.active)
+*/
+.btn-check:checked + .btn,
+.btn-group .btn.active,
+.btn-group .btn:active {
+    background-color: var(--primary-color) !important;
+    color: #ffffff !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 1px rgba(139,90,60,0.55), 0 2px 8px rgba(139,90,60,0.2); /* elevation on all sides */
+    transition: box-shadow 180ms ease, background-color 180ms ease;
+}
+
+/* Also ensure outline secondary buttons show proper selected state */
+.btn-check:checked + .btn-outline-secondary,
+.btn-outline-secondary.active {
+    background-color: var(--primary-color) !important;
+    color: #ffffff !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 1px rgba(139,90,60,0.45), 0 2px 8px rgba(139,90,60,0.2); /* elevation on all sides */
+    transition: box-shadow 180ms ease, background-color 180ms ease;
+}
+
+
+.dark-theme .spinner-border {
+    border-color: var(--primary-color);
+    border-right-color: transparent;
+}
+
+/* Ensure images don't look too bright in dark mode */
+.dark-theme img:not(.no-dark-filter) {
+    opacity: 0.9;
+}
+
+/* Arabic text should remain readable in dark mode */
+.dark-theme .arabic {
+    color: var(--text-color);
+    opacity: 0.95;
+}
+
+/* Keyboard navigation focus styles */
+body.keyboard-navigation *:focus {
+    outline: 3px solid var(--link-color, #4dabf7);
+    outline-offset: 2px;
+}
+
+body.keyboard-navigation button:focus,
+body.keyboard-navigation a:focus,
+body.keyboard-navigation [role="button"]:focus {
+    outline: 3px solid var(--link-color, #4dabf7);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(77, 171, 247, 0.3);
+}
+
+/* Skip link for screen readers */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary-color);
+    color: white;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 100;
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
+/* Improve button accessibility */
+button, [role="button"] {
+    cursor: pointer;
+}
+
+button:disabled, [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* ============================================
+   SCRIPT TOGGLE BADGE (Premium Style)
+   ============================================ */
+.script-toggle-badge {
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid rgba(255, 255, 255, 1);
+    color: #5a4a3a;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 18px;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.script-toggle-badge:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    color: #3a2a1a;
+}
+
+.script-toggle-badge:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* Dark theme adjustments */
+.dark-theme .script-toggle-badge {
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.dark-theme .script-toggle-badge:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* ============================================
+   NAVBAR HAMBURGER MENU
+   ============================================ */
+.navbar-toggler {
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 8px;
+}
+
+.navbar-toggler:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: rgba(255, 255, 255, 1);
+}
+
+.navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(90, 74, 58, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='3' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.dark-theme .navbar-toggler {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.dark-theme .navbar-toggler:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.dark-theme .navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.95)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='3' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* ============================================
+   ENHANCED CARD SHADOWS
+   ============================================ */
+.card {
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.shadow-lg {
+    box-shadow: var(--shadow-lg) !important;
+}
+
+.rounded-pill {
+    box-shadow: var(--shadow-sm);
+}
+
+/* Header gradient enhancement */
+.header-bg-color {
+    background: var(--header-bg-gradient) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* ============================================
+   AYA LIST PAGE SPECIFIC STYLING
+   ============================================ */
+
+/* Sura header card */
+#surahead {
+    background: var(--header-bg-color) !important;
+    border: 2px solid var(--border-color);
+}
+
+#surahead h3, #surahead h4 {
+    color: white !important;
+    font-weight: 600;
+}
+
+/* Aya card title with actions */
+.card-title.header-bg-color {
+    background: var(--card-accent-color) !important;
+    padding: 12px 8px;
+}
+
+/* Aya number badge - better contrast */
+.card-title.header-bg-color span:first-child {
+    background: var(--aya-number-bg) !important;
+    color: var(--aya-number-text) !important;
+    font-weight: 700;
+    font-size: 1.1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    min-width: 45px;
+    text-align: center;
+}
+
+/* Better button visibility in Aya header */
+.card-title.header-bg-color .btn-link img {
+    filter: none;
+    opacity: 0.95;
+}
+
+.card-title.header-bg-color .btn-link:hover img {
+    opacity: 1;
+    transform: scale(1.1);
+    transition: all 0.2s ease;
+}
+
+/* ============================================
+   SVG ICON MASK TECHNIQUE
+   ============================================ */
+/* 
+   Usage: <div class="icon icon-settings"></div>
+   Icons automatically adapt to text color and theme
+*/
+
+.icon {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    background-color: currentColor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+}
+
+/* Icon variants for common sizes */
+.icon-sm {
+    width: 16px;
+    height: 16px;
+}
+
+.icon-lg {
+    width: 32px;
+    height: 32px;
+}
+
+.icon-xl {
+    width: 48px;
+    height: 48px;
+}
+
+/* Specific icon definitions */
+.icon-settings {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z'/%3E%3C/svg%3E");
+}
+
+.icon-home {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z'/%3E%3C/svg%3E");
+}
+
+.icon-book {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z'/%3E%3C/svg%3E");
+}
+
+.icon-favorite {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z'/%3E%3C/svg%3E");
+}
+
+.icon-collections {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z'/%3E%3C/svg%3E");
+}
+
+.icon-note {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'/%3E%3C/svg%3E");
+}
+
+.icon-search {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
+}
+
+.icon-tune {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z'/%3E%3C/svg%3E");
+}
+
+.icon-collections-bookmark {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 10l-2.5-1.5L15 12V4h5v8z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 10l-2.5-1.5L15 12V4h5v8z'/%3E%3C/svg%3E");
+}
+
+/* ============================================
+   SVG ICON STYLING FOR EXTERNAL SVG FILES
+   ============================================ */
+
+/* Base SVG icon class - uses filters to adapt to theme */
+.svg-icon {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Icon color classes for different backgrounds */
+.svg-icon-primary {
+    filter: var(--icon-filter-primary);
+}
+
+.svg-icon-light {
+    filter: var(--icon-filter-light);
+}
+
+/* Dark theme overrides */
+.dark-theme .svg-icon-primary,
+.dark-theme .svg-icon-light {
+    filter: var(--icon-filter);
+}
+
+/* Size variants for SVG icons */
+.svg-icon-sm {
+    width: 16px;
+    height: 16px;
+}
+
+.svg-icon-md {
+    width: 24px;
+    height: 24px;
+}
+
+.svg-icon-lg {
+    width: 32px;
+    height: 32px;
+}
+
+.svg-icon-xl {
+    width: 48px;
+    height: 48px;
+}
+
+.svg-icon-xxl {
+    width: 72px;
+    height: 72px;
+}
+
+/* Navigation menu icons - adapt to theme colors */
+.nav-link .svg-icon {
+    filter: var(--icon-filter-primary);
+    transition: filter 0.3s ease, opacity 0.3s ease;
+    opacity: 0.8;
+}
+
+.nav-link:hover .svg-icon,
+.nav-link.active .svg-icon {
+    opacity: 1;
+    filter: var(--icon-filter-primary);
+}
+
+/* Dark theme SVG icon filters */
+:root {
+    --icon-filter: none;
+    --icon-filter-hover: brightness(1.1);
+}
+
+.dark-theme {
+    --icon-filter: brightness(0) invert(1);
+    --icon-filter-hover: brightness(0) invert(1) sepia(1) saturate(3) hue-rotate(5deg);
+}
+
+/* Header icons - force white only for specific header elements */
+.header-bg-color .svg-icon-white {
+    filter: brightness(0) invert(1) !important;
+}
+
+/* ============================================
+   ICON MASK SYSTEM (RECOMMENDED APPROACH)
+   ============================================
+   Use this approach when you need theme-aware icons that automatically
+   adapt their color based on context (text color, CSS variables, etc.)
+   
+   Usage: <span class="icon-mask icon-{name} [svg-icon-{size}]"></span>
+   Example: <span class="icon-mask icon-edit svg-icon-lg text-primary"></span>
+   
+   Benefits:
+   - Automatically inherits color from currentColor
+   - Theme-aware without manual color management
+   - DRY - single base class, minimal per-icon code
+   - Flexible sizing via font-size or size classes
+*/
+
+.icon-mask {
+    display: inline-block;
+    width: 1em; /* scales with font-size by default */
+    height: 1em;
+    vertical-align: middle;
+    background-color: var(--primary-color); /* automatically inherits text color */
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+}
+.dark-theme .icon-mask {
+    background-color: var(--text-color);
+}
+/* Per-icon mask classes - just define the SVG path */
+.icon-arrow-upward { -webkit-mask-image: url('/arrow_upward.svg'); mask-image: url('/arrow_upward.svg'); }
+.icon-arrow-forward { -webkit-mask-image: url('/arrow_forward.svg'); mask-image: url('/arrow_forward.svg'); }
+.icon-auto-stories { -webkit-mask-image: url('/auto_stories.svg'); mask-image: url('/auto_stories.svg'); }
+.icon-bookmark { -webkit-mask-image: url('/bookmark.svg'); mask-image: url('/bookmark.svg'); }
+.icon-edit-note { -webkit-mask-image: url('/edit_note.svg'); mask-image: url('/edit_note.svg'); }
+.icon-import { -webkit-mask-image: url('/convert_to_text.svg'); mask-image: url('/convert_to_text.svg'); }
+.icon-export { -webkit-mask-image: url('/export_notes.svg'); mask-image: url('/export_notes.svg'); }
+.icon-light-mode { -webkit-mask-image: url('/light_mode.svg'); mask-image: url('/light_mode.svg'); }
+.icon-dark-mode { -webkit-mask-image: url('/dark_mode.svg'); mask-image: url('/dark_mode.svg'); }
+.icon-edit { -webkit-mask-image: url('/edit.svg'); mask-image: url('/edit.svg'); }
+.icon-delete { -webkit-mask-image: url('/delete.svg'); mask-image: url('/delete.svg'); }
+.icon-heart_minus { -webkit-mask-image: url('/heart_minus.svg'); mask-image: url('/heart_minus.svg'); }
+.icon-arrow_back { -webkit-mask-image: url('/arrow_back.svg'); mask-image: url('/arrow_back.svg'); }
+.icon-facebook { -webkit-mask-image: url('/facebook.svg'); mask-image: url('/facebook.svg'); }
+.icon-telegram { -webkit-mask-image: url('/telegram.svg'); mask-image: url('/telegram.svg'); }
+
+/* Size helpers for icon-mask when used with fixed sizes */
+.icon-mask.svg-icon-sm { width: 16px; height: 16px; }
+.icon-mask.svg-icon-md { width: 24px; height: 24px; }
+.icon-mask.svg-icon-lg { width: 32px; height: 32px; }
+.icon-mask.svg-icon-xl { width: 48px; height: 48px; }
+.icon-mask.svg-icon-xxl { width: 72px; height: 72px; }
+
+/* Primary colored icons (for <img> tags) */
+.svg-icon-primary {
+    filter: var(--icon-filter-primary);
+}
+
+/* White icons for dark backgrounds (for <img> tags) */
+.svg-icon-white {
+    filter: brightness(0) invert(1);
+}
+
+/* Black icons for light backgrounds (for <img> tags) */
+.svg-icon-black {
+    filter: brightness(0);
+}
+
+/* Theme-adaptive icons (for <img> tags) */
+.svg-icon-theme {
+    filter: var(--icon-filter, none);
 }

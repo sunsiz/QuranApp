@@ -1,10 +1,26 @@
 ﻿@inherits LayoutComponentBase
+@using QuranBlazor.Services
+@implements IDisposable
 
 @code {
-    
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        ThemeService.OnThemeChanged += HandleThemeChanged;
+    }
+
+    private void HandleThemeChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ThemeService.OnThemeChanged -= HandleThemeChanged;
+    }
 }
 
-<div class="page">
+<div class="page @ThemeService.ThemeClass">
     <div class="sidebar">
         <NavMenu />
     </div>

@@ -1,13 +1,37 @@
 ﻿@page "/favorites"
 @using QuranBlazor.Data
 @using System.Diagnostics
+@using QuranBlazor.Services
 @inject DbContext db
 @inject DialogService Dialog
+@implements IDisposable
 
 <div class="text-center mb-3">
-    <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white"><img src="heart_check_white.png" width="48" height="48" class="mx-2" /> @TransliterationService.GetDisplayText("Белгиланган оятлар")</h3>
+    <h3 class="px-5 py-3 shadow-lg w-100 header-bg-color bg-gradient rounded-pill text-white"><img src="favorite_fill.svg" class="svg-icon svg-icon-xl svg-icon-white mx-2" alt="" /> @TransliterationService.GetDisplayText("Белгиланган оятлар")</h3>
 </div>
-@if (Ayas != null)
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@TransliterationService.GetDisplayText("Юкланмоқда...")</span>
+        </div>
+    </div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger text-center">@TransliterationService.GetDisplayText(errorMessage)</div>
+}
+else if (Ayas == null || !Ayas.Any())
+{
+    <div class="text-center my-5 px-3">
+        <img src="favorite_fill.svg" class="svg-icon svg-icon-xxl mb-3 opacity-50 svg-icon-light" alt="" />
+        <h4 class="text-muted">@TransliterationService.GetDisplayText("Сизда ҳали белгиланган оятлар йўқ")</h4>
+        <p class="text-muted">@TransliterationService.GetDisplayText("Оятларни белгилаш учун қалб белгисига босинг")</p>
+        <a href="/suras" class="btn btn-primary rounded-pill mt-3">@TransliterationService.GetDisplayText("Суралар саҳифасига ўтинг")</a>
+    </div>
+}
+else
 {
     @foreach (FavoritesViewModel aya in Ayas)
     {
@@ -17,12 +41,14 @@
                     <div class="card-body py-1">
                         <div class="hstack">
                             <div class="vstack">
-                                <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="text-black" title="@TransliterationService.GetDisplayText("Оятга ўтиш")">
+                                <a href="AyaList?SuraId=@aya.SuraId#@aya.AyaId" class="text-primary" title="@TransliterationService.GetDisplayText("Оятга ўтиш")">
                                     <h3 class="card-title mb-0">@aya.SuraId. @TransliterationService.GetDisplayText(aya.SuraName), @aya.AyaId @TransliterationService.GetDisplayText("оят")</h3>
                                     <h4 class="card-body p-0 fs-6">@TransliterationService.GetDisplayText(aya.Text.Substring(0, Math.Min(aya.Text.Length, 50)))</h4>
                                 </a>
                             </div>
-                            <span class="p-2 fs-3 text-black" role="button" aria-hidden="true" @onclick="() => DeleteFavorite(aya)"><img src="heart_minus_black.png" width="48" height="48" class="mx-2" /></span>@* oi oi-trash *@
+                            <button type="button" class="btn btn-link p-2 fs-3 text-primary border-0" @onclick="() => DeleteFavorite(aya)" aria-label="@TransliterationService.GetDisplayText("Белгиланганлардан олиб ташлаш")" title="@TransliterationService.GetDisplayText("Белгиланганлардан олиб ташлаш")">
+                                <img src="heart_minus.svg" class="svg-icon svg-icon-xl mx-2" alt="" />
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -32,29 +58,70 @@
 }
 @code {
     private List<FavoritesViewModel> Ayas { get; set; }
+    private bool isLoading = true;
+    private string errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
-        Ayas = await db.GetFavoritesAsync().ConfigureAwait(false);
+        TransliterationService.OnScriptChanged += HandleScriptChanged;
+        await LoadFavoritesAsync();
+    }
+
+    private void HandleScriptChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadFavoritesAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            Ayas = await db.GetFavoritesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Маълумотларни юклашда хатолик. Илтимос, қайта уриниб кўринг.";
+            Debug.WriteLine($"Error loading favorites: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private async Task DeleteFavorite(FavoritesViewModel aya)
     {
-        var result = await DisplayConfirm("Ишончингиз комилми?", "Сиз белгилаган оят ўчирилади. Ишончингиз комилми?", "Ҳа", "Йўқ").ConfigureAwait(false);
+        var result = await Dialog.DisplayConfirm(
+            TransliterationService.GetDisplayText("Ишончингиз комилми?"),
+            TransliterationService.GetDisplayText("Сиз белгилаган оят ўчирилади. Ишончингиз комилми?"),
+            TransliterationService.GetDisplayText("Ҳа"),
+            TransliterationService.GetDisplayText("Йўқ")
+        ).ConfigureAwait(false);
+
         if (result)
         {
-            var deleted = await db.DeleteFavoriteAsync(aya.AyaId, aya.SuraId);
-            if (deleted > 0)
+            try
             {
-                var removed = Ayas.Remove(Ayas.Find(a => a.AyaId == aya.AyaId && a.SuraId == aya.SuraId));
-                Debug.WriteLine($"Delete favorite aya result is {removed}");
-                MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Белгиланган оят олиб ташланди")));
+                var deleted = await db.DeleteFavoriteAsync(aya.AyaId, aya.SuraId);
+                if (deleted > 0)
+                {
+                    var removed = Ayas.Remove(Ayas.Find(a => a.AyaId == aya.AyaId && a.SuraId == aya.SuraId));
+                    Debug.WriteLine($"Delete favorite aya result is {removed}");
+                    MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Белгиланган оят олиб ташланди")));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error deleting favorite: {ex.Message}");
+                MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди")));
             }
         }
     }
 
-    public Task<bool> DisplayConfirm(string title, string message, string accept, string cancel)
+    public void Dispose()
     {
-        return Application.Current.MainPage.DisplayAlert(TransliterationService.GetDisplayText(title), TransliterationService.GetDisplayText(message), TransliterationService.GetDisplayText(accept), TransliterationService.GetDisplayText(cancel));
+        TransliterationService.OnScriptChanged -= HandleScriptChanged;
     }
 }

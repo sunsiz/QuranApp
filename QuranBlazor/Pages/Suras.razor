@@ -1,23 +1,99 @@
 ﻿@page "/suras"
 @using QuranBlazor.Data
 @using System.Diagnostics
+@using QuranBlazor.Services
 @inject DbContext db
 @inject IJSRuntime JsRuntime
+@implements IDisposable
 
 @code {
-    public IEnumerable<Sura> SuraList { get; set; }
+    private IEnumerable<Sura> SuraList { get; set; }
+    private IEnumerable<Sura> AllSuras { get; set; }
+    private Dictionary<int, ReadingProgress> suraProgressDict = new();
+    private bool isLoading = true;
+    private string errorMessage;
+    private string SuraFilter;
+    private DebounceTimer _debounceTimer;
+
     protected override async Task OnInitializedAsync()
     {
-        SuraList = await db.GetSuraListAsync().ConfigureAwait(false);
+        _debounceTimer = new DebounceTimer(300);
+        TransliterationService.OnScriptChanged += HandleScriptChanged;
+        await LoadSurasAsync();
         base.OnInitialized();
     }
 
-    string SuraFilter;
+    private void HandleScriptChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadSurasAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            AllSuras = await db.GetSuraListAsync().ConfigureAwait(false);
+            SuraList = AllSuras;
+
+            // Load reading progress for all Suras in background
+            _ = LoadProgressAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Маълумотларни юклашда хатолик. Илтимос, қайта уриниб кўринг.";
+            Debug.WriteLine($"Error loading suras: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadProgressAsync()
+    {
+        try
+        {
+            var allProgress = await db.GetAllReadingProgressAsync();
+            suraProgressDict = allProgress.ToDictionary(p => p.SuraId, p => p);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error loading progress: {ex.Message}");
+        }
+    }
 
     private void FilterSura()
     {
-        SuraList = SuraList.Where(s => s.Name.Contains(SuraFilter, StringComparison.InvariantCultureIgnoreCase));
+        _debounceTimer.Debounce(() =>
+        {
+            InvokeAsync(() =>
+            {
+                if (string.IsNullOrWhiteSpace(SuraFilter))
+                {
+                    SuraList = AllSuras;
+                }
+                else
+                {
+                    SuraList = AllSuras.Where(s => 
+                        s.Name.Contains(SuraFilter, StringComparison.OrdinalIgnoreCase) ||
+                        TransliterationService.ToLatin(s.Name).Contains(SuraFilter, StringComparison.OrdinalIgnoreCase) ||
+                        TransliterationService.ToCyrillic(s.Name).Contains(SuraFilter, StringComparison.OrdinalIgnoreCase)
+                    );
+                }
+                StateHasChanged();
+            });
+        });
     }
+
+    private void ClearSearch()
+    {
+        SuraFilter = string.Empty;
+        SuraList = AllSuras;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -25,7 +101,7 @@
             await JsRuntime.InvokeVoidAsync("restoreScrollPosition");
             Debug.WriteLine("rendering again and try to scroll back");
 
-    // Attach the saveScrollPosition function to all anchor tags
+            // Attach the saveScrollPosition function to all anchor tags
             await JsRuntime.InvokeVoidAsync("eval", @"
                 document.querySelectorAll('a').forEach(anchor => {
                     anchor.addEventListener('click', (e) => {
@@ -36,29 +112,68 @@
             ");
         }
     }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+        TransliterationService.OnScriptChanged -= HandleScriptChanged;
+    }
 }
 
 <div class="text-white mb-3">
-    @*  form-floating *@
-    <input class="form-control me-2 rounded-pill primary-color p-3" id="floatingSearch" type="search" placeholder="@TransliterationService.GetDisplayText(" Сура Излаш")" @bind="SuraFilter" @bind:event="oninput" @bind:after="FilterSura" aria-label="Сура Излаш">
-    @* <label class="primary-color" for="floatingSearch">Сура Излаш</label> *@
+    <div class="position-relative">
+        <input class="form-control me-2 rounded-pill primary-color p-3 pe-5" id="floatingSearch" type="search" placeholder="@TransliterationService.GetDisplayText("Сура Излаш")" @bind="SuraFilter" @bind:event="oninput" @bind:after="FilterSura" aria-label="Сура Излаш">
+        @if (!string.IsNullOrEmpty(SuraFilter))
+        {
+            <button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y me-2" @onclick="ClearSearch" aria-label="@TransliterationService.GetDisplayText("Тозалаш")">
+                <img src="close.svg" class="svg-icon svg-icon-md svg-icon-primary" alt="Clear" />
+            </button>
+        }
+    </div>
 </div>
-@if (SuraList != null)
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">@TransliterationService.GetDisplayText("Юкланмоқда...")</span>
+        </div>
+    </div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger text-center">@TransliterationService.GetDisplayText(errorMessage)</div>
+}
+else if (SuraList != null && SuraList.Any())
 {
     @foreach (Sura sura in SuraList)
     {
+        var progress = suraProgressDict.ContainsKey(sura.Id) ? suraProgressDict[sura.Id] : null;
         <div class="row my-2">
             <div class="col">
                 <div class="card bg-light bg-gradient rounded-pill">
-                    <div class="card-body py-1">
-                        <a href="AyaList?SuraId=@sura.Id&SuraName=@sura.Name" class="stretched-link text-black">
+                    <div class="card-body py-2">
+                        <a href="AyaList?SuraId=@sura.Id&SuraName=@sura.Name" class="stretched-link text-primary">
                             <div class="hstack">
-                                <div class="vstack">
-                                    <h5 class="card-title mb-0">@sura.Id. @TransliterationService.GetDisplayText(sura.Name)</h5>
+                                <div class="vstack flex-grow-1">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <h5 class="card-title mb-0">@sura.Id. @TransliterationService.GetDisplayText(sura.Name)</h5>
+                                        @if (progress != null && progress.IsCompleted)
+                                        {
+                                            <span class="badge bg-success">✓</span>
+                                        }
+                                    </div>
                                     @{
                                         var revealed = sura.RevealedIn ? @TransliterationService.GetDisplayText("Мадина") : @TransliterationService.GetDisplayText("Макка");
                                     }
-                                    <p class="card-text">@* <span class="my-0">@sura.Meaning</span> -  *@@revealed (@sura.AyaCount)</p>
+                                    <p class="card-text">@revealed (@sura.AyaCount)</p>
+                                    @if (progress != null && !progress.IsCompleted)
+                                    {
+                                        <div class="progress mt-1" style="height: 6px;">
+                                            <div class="progress-bar bg-primary" role="progressbar" style="width: @progress.ProgressPercentage%" aria-valuenow="@progress.ProgressPercentage" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                        <small class="text-muted">@progress.AyasRead / @progress.TotalAyas</small>
+                                    }
                                 </div>
                                 <h2 class="arabic">@sura.ArabicName</h2>
                             </div>
@@ -68,4 +183,12 @@
             </div>
         </div>
     }
+}
+else
+{
+    <div class="text-center my-5 px-3">
+        <img src="book.svg" class="svg-icon svg-icon-xxl mb-3 opacity-50 svg-icon-light" alt="" />
+        <h4 class="text-muted">@TransliterationService.GetDisplayText("Ҳеч нарса топилмади")</h4>
+        <p class="text-muted">@TransliterationService.GetDisplayText("Бошқа ном билан қидириб кўринг")</p>
+    </div>
 }

@@ -2,10 +2,13 @@
     position: relative;
     display: flex;
     flex-direction: column;
+    background-color: var(--background-color, #ffffff);
+    min-height: 100vh;
 }
 
 main {
     flex: 1;
+    background-color: var(--background-color, #ffffff);
 }
 
 .sidebar {
