@@ -2,9 +2,16 @@
 @using QuranBlazor.Services
 @inject ExportService ExportService
 @inject DialogService Dialog
+@inject NavigationManager NavigationManager
 @implements IDisposable
 
 @code {
+    private TranslationUpdateService updateService;
+    private bool isCheckingUpdate = false;
+    private bool isUpdating = false;
+    private TranslationUpdateService.UpdateInfo updateInfo;
+    private string updateMessage = "";
+    private int updateProgress = 0;
 
     private int ArabicFontSize
     {
@@ -97,7 +104,7 @@
             else
             {
                 var message = $"{notesImported} {TransliterationService.GetDisplayText("та қайд")} ва {favoritesImported} {TransliterationService.GetDisplayText("та белгиланган оят тикланди")}";
-                Dialog.DisplayToast(TransliterationService.GetDisplayText(message));
+                    await Dialog.DisplayToast(TransliterationService.GetDisplayText(message));
             }
         }
         catch (Exception ex)
@@ -145,13 +152,13 @@
             if (confirmed)
             {
                 await ExportService.ShareBackupAsync();
-                Dialog.DisplayToast(TransliterationService.GetDisplayText("Маълумотлар муваффақиятли заҳираланди"));
+                    await Dialog.DisplayToast(TransliterationService.GetDisplayText("Маълумотлар муваффақиятли заҳираланди"));
             }
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Export error: {ex.Message}");
-            Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
         }
         finally
         {
@@ -162,8 +169,132 @@
     protected override void OnInitialized()
     {
         base.OnInitialized();
+        
+        // Initialize update service
+        // TODO: Replace with your actual update URL
+        updateService = new TranslationUpdateService("https://www.musulmonlar.com/wp-content/uploads/mealdb");
+        
         TransliterationService.OnScriptChanged += HandleScriptChanged;
         ThemeService.OnThemeChanged += HandleThemeChanged;
+    }
+
+    private async Task CheckForUpdates()
+    {
+        if (isCheckingUpdate) return;
+
+        isCheckingUpdate = true;
+        updateMessage = "";
+        
+        try
+        {
+            var (available, info, error) = await updateService.CheckForUpdateAsync();
+            
+            if (!string.IsNullOrEmpty(error))
+            {
+                updateMessage = TransliterationService.GetDisplayText($"Хатолик: {error}");
+                await Dialog.DisplayToast(updateMessage);
+                return;
+            }
+
+            if (available && info != null)
+            {
+                updateInfo = info;
+                var confirmed = await Dialog.DisplayConfirm(
+                    TransliterationService.GetDisplayText("Янгиланиш мавжуд"),
+                    TransliterationService.GetDisplayText($"Версия {info.Version} мавжуд ({info.Size / 1024} KB).\nХозир янгиланишни истайсизми?"),
+                    TransliterationService.GetDisplayText("Ҳа"),
+                    TransliterationService.GetDisplayText("Йўқ")
+                );
+
+                if (confirmed)
+                {
+                    await InstallUpdate();
+                }
+            }
+            else
+            {
+                var currentVersion = updateService.GetCurrentDatabaseVersion();
+                updateMessage = TransliterationService.GetDisplayText($"Сиз энг сўнгги версиядасиз ({currentVersion})");
+                await Dialog.DisplayToast(updateMessage);
+            }
+
+            updateService.RecordUpdateCheck();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Update check error: {ex.Message}");
+            await Dialog.DisplayToast(TransliterationService.GetDisplayText("Янгиланишни текширишда хатолик"));
+        }
+        finally
+        {
+            isCheckingUpdate = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task InstallUpdate()
+    {
+        if (isUpdating || updateInfo == null) return;
+
+        isUpdating = true;
+        updateProgress = 0;
+        
+        try
+        {
+            var progress = new Progress<TranslationUpdateService.UpdateProgress>(p =>
+            {
+                updateProgress = p.ProgressPercentage;
+                // Translate the status messages
+                updateMessage = p.Status switch
+                {
+                    "Checking for updates..." => TransliterationService.GetDisplayText("Янгиланишлар текширилмоқда..."),
+                    "Downloading update..." => TransliterationService.GetDisplayText("Янгиланиш юкланмоқда..."),
+                    "Installing update..." => TransliterationService.GetDisplayText("Янгиланиш ўрнатилмоқда..."),
+                    "Verifying download..." => TransliterationService.GetDisplayText("Юклаш текширилмоқда..."),
+                    "Update complete" => TransliterationService.GetDisplayText("Янгиланиш тугади"),
+                    _ => TransliterationService.GetDisplayText(p.Status) // Fallback to transliteration
+                };
+                InvokeAsync(StateHasChanged);
+            });
+
+            var (success, error) = await updateService.DownloadAndInstallUpdateAsync(updateInfo, progress);
+
+            if (success)
+            {
+                var confirmed = await Dialog.DisplayConfirm(
+                    TransliterationService.GetDisplayText("Янгиланиш муваффақиятли ўрнатилди"),
+                    TransliterationService.GetDisplayText("Таржима янгиланди. Иловани қайта юклаш керак. Хозир қайта юклайсизми?"),
+                    TransliterationService.GetDisplayText("Ҳа"),
+                    TransliterationService.GetDisplayText("Кейинроқ")
+                );
+
+                if (confirmed)
+                {
+                    // Restart app - navigate to home and force reload
+                    NavigationManager.NavigateTo("/", forceLoad: true);
+                }
+            }
+            else
+            {
+                await Dialog.DisplayAlert(
+                    TransliterationService.GetDisplayText("Хатолик"),
+                    TransliterationService.GetDisplayText($"Янгиланишни ўрнатишда хатолик: {error}"),
+                    TransliterationService.GetDisplayText("Яхши")
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Update install error: {ex.Message}");
+            await Dialog.DisplayToast(TransliterationService.GetDisplayText("Янгиланишни ўрнатишда хатолик"));
+        }
+        finally
+        {
+            isUpdating = false;
+            updateProgress = 0;
+            updateMessage = "";
+            StateHasChanged();
+        }
     }
 
     private void HandleScriptChanged()
@@ -268,6 +399,54 @@
                     @TransliterationService.GetDisplayText("Қайдларни заҳиралаш")
                 </button>
                 <small class="text-muted text-center mt-2">@TransliterationService.GetDisplayText("Қайдларингизни файлга сақлаш")</small>
+            </div>
+            
+            <div class="vstack border-3 p-2 m-2 my-3 rounded-pill bg-light bg-gradient shadow-sm">
+                <h5 class="card-title text-primary text-center mb-3">@TransliterationService.GetDisplayText("Таржима янгиланишлари")</h5>
+                
+                @if (!string.IsNullOrEmpty(updateMessage))
+                {
+                    <div class="alert alert-info rounded-pill text-center mb-3" role="alert">
+                        @updateMessage
+                    </div>
+                }
+                
+                @if (isUpdating)
+                {
+                    <div class="vstack gap-2 mb-3">
+                        <div class="progress" style="height: 30px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" 
+                                 style="width: @(updateProgress)%"
+                                 aria-valuenow="@updateProgress" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                @updateProgress%
+                            </div>
+                        </div>
+                    </div>
+                }
+                
+                <button class="btn btn-primary rounded-pill w-100 py-3" 
+                        @onclick="CheckForUpdates" 
+                        disabled="@(isCheckingUpdate || isUpdating)">
+                    @if (isCheckingUpdate)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <span class="icon-mask icon-update svg-icon-md me-2" aria-hidden="true" title="Update"></span>
+                    }
+                    @TransliterationService.GetDisplayText("Янгиланишларни текшириш")
+                </button>
+                
+                @{
+                    var currentVersion = updateService?.GetCurrentDatabaseVersion() ?? "1.3";
+                }
+                <small class="text-muted text-center mt-2">
+                    @TransliterationService.GetDisplayText("Жорий версия"): @currentVersion
+                </small>
             </div>
         </div>
     </div>

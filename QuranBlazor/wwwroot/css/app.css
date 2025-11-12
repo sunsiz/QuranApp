@@ -1185,7 +1185,7 @@ button:disabled, [role="button"][aria-disabled="true"] {
     width: 1em; /* scales with font-size by default */
     height: 1em;
     vertical-align: middle;
-    background-color: var(--primary-color); /* automatically inherits text color */
+    background-color: var(--text-color); /* automatically inherits text color */
     -webkit-mask-size: contain;
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-position: center;
@@ -1193,8 +1193,29 @@ button:disabled, [role="button"][aria-disabled="true"] {
     mask-repeat: no-repeat;
     mask-position: center;
 }
+
 .dark-theme .icon-mask {
     background-color: var(--text-color);
+}
+
+/* White icon variant for use on primary-colored backgrounds */
+.btn-primary .icon-mask,
+.bg-primary .icon-mask,
+.header-bg-color .icon-mask {
+    background-color: white !important;
+}
+
+/* Specific color overrides for text-colored icons */
+.text-primary .icon-mask {
+    background-color: var(--primary-color) !important;
+}
+
+.text-danger .icon-mask {
+    background-color: #dc3545 !important;
+}
+
+.dark-theme .text-danger .icon-mask {
+    background-color: #ff6b6b !important;
 }
 /* Per-icon mask classes - just define the SVG path */
 .icon-arrow-upward { -webkit-mask-image: url('/arrow_upward.svg'); mask-image: url('/arrow_upward.svg'); }
@@ -1204,6 +1225,7 @@ button:disabled, [role="button"][aria-disabled="true"] {
 .icon-edit-note { -webkit-mask-image: url('/edit_note.svg'); mask-image: url('/edit_note.svg'); }
 .icon-import { -webkit-mask-image: url('/convert_to_text.svg'); mask-image: url('/convert_to_text.svg'); }
 .icon-export { -webkit-mask-image: url('/export_notes.svg'); mask-image: url('/export_notes.svg'); }
+.icon-update { -webkit-mask-image: url('/download_for_offline.svg'); mask-image: url('/download_for_offline.svg'); }
 .icon-light-mode { -webkit-mask-image: url('/light_mode.svg'); mask-image: url('/light_mode.svg'); }
 .icon-dark-mode { -webkit-mask-image: url('/dark_mode.svg'); mask-image: url('/dark_mode.svg'); }
 .icon-edit { -webkit-mask-image: url('/edit.svg'); mask-image: url('/edit.svg'); }

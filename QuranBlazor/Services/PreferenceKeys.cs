@@ -36,6 +36,21 @@ namespace QuranBlazor.Services
         /// </summary>
         public const string Theme = "Theme";
 
+        /// <summary>
+        /// Key for storing the current database version
+        /// </summary>
+        public const string DatabaseVersion = "DatabaseVersion";
+
+        /// <summary>
+        /// Key for storing the last database update date
+        /// </summary>
+        public const string DatabaseUpdateDate = "DatabaseUpdateDate";
+
+        /// <summary>
+        /// Key for storing the last update check timestamp
+        /// </summary>
+        public const string LastUpdateCheck = "LastUpdateCheck";
+
         // Default values
         public const string DefaultBookmark = "49:11";
         public const string DefaultScript = "Cyrillic";

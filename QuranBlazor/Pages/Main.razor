@@ -80,19 +80,11 @@
     </div>
 
     <div class="row my-3 text-center">
-        <div class="col d-flex flex-column">
+        <div class="col-6 d-flex flex-column">
             <div class="card flex-fill align-items-center justify-content-center rounded-pill">
                 <div class="card-body" style="min-height: 130px;">
                     <div class="text-center mb-2">
                     <img src="routine.svg" class="svg-icon svg-icon-xxl svg-icon-primary" alt="script" />
-                        @* @if (ThemeService.IsDarkMode)
-                        {
-                            <span class="icon-mask icon-dark-mode text-primary" style="width: 48px; height: 48px; display: inline-block;" aria-hidden="true" title="Dark"></span>
-                        }
-                        else
-                        {
-                            <span class="icon-mask icon-light-mode text-primary" style="width: 48px; height: 48px; display: inline-block;" aria-hidden="true" title="Light"></span>
-                        } *@
                     </div>
                     <div class="btn-group w-100 px-2" role="group" aria-label="Theme selection">
                         <input type="radio" class="btn-check" name="themeToggle" id="themeToggleLight" value="Light" autocomplete="off" checked="@(!ThemeService.IsDarkMode)" @onchange="@(() => SetTheme("Light"))">
@@ -110,7 +102,7 @@
                 </div>
             </div>
         </div>
-        <div class="col d-flex flex-column">
+        <div class="col-6 d-flex flex-column">
             <div class="card flex-fill align-items-center justify-content-center rounded-pill">
                 <div class="card-body" style="min-height: 130px;">
                     <div class="text-center mb-2">

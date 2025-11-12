@@ -9,7 +9,6 @@
 @code {
     private IEnumerable<Sura> SuraList { get; set; }
     private IEnumerable<Sura> AllSuras { get; set; }
-    private Dictionary<int, ReadingProgress> suraProgressDict = new();
     private bool isLoading = true;
     private string errorMessage;
     private string SuraFilter;
@@ -36,9 +35,6 @@
         {
             AllSuras = await db.GetSuraListAsync().ConfigureAwait(false);
             SuraList = AllSuras;
-
-            // Load reading progress for all Suras in background
-            _ = LoadProgressAsync();
         }
         catch (Exception ex)
         {
@@ -48,20 +44,6 @@
         finally
         {
             isLoading = false;
-        }
-    }
-
-    private async Task LoadProgressAsync()
-    {
-        try
-        {
-            var allProgress = await db.GetAllReadingProgressAsync();
-            suraProgressDict = allProgress.ToDictionary(p => p.SuraId, p => p);
-            await InvokeAsync(StateHasChanged);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error loading progress: {ex.Message}");
         }
     }
 
@@ -80,7 +62,8 @@
                     SuraList = AllSuras.Where(s => 
                         s.Name.Contains(SuraFilter, StringComparison.OrdinalIgnoreCase) ||
                         TransliterationService.ToLatin(s.Name).Contains(SuraFilter, StringComparison.OrdinalIgnoreCase) ||
-                        TransliterationService.ToCyrillic(s.Name).Contains(SuraFilter, StringComparison.OrdinalIgnoreCase)
+                        TransliterationService.ToCyrillic(s.Name).Contains(SuraFilter, StringComparison.OrdinalIgnoreCase) ||
+                        s.Id.ToString().Contains(SuraFilter) // Allow filtering by sura number
                     );
                 }
                 StateHasChanged();
@@ -148,7 +131,6 @@ else if (SuraList != null && SuraList.Any())
 {
     @foreach (Sura sura in SuraList)
     {
-        var progress = suraProgressDict.ContainsKey(sura.Id) ? suraProgressDict[sura.Id] : null;
         <div class="row my-2">
             <div class="col">
                 <div class="card bg-light bg-gradient rounded-pill">
@@ -158,22 +140,11 @@ else if (SuraList != null && SuraList.Any())
                                 <div class="vstack flex-grow-1">
                                     <div class="d-flex align-items-center gap-2">
                                         <h5 class="card-title mb-0">@sura.Id. @TransliterationService.GetDisplayText(sura.Name)</h5>
-                                        @if (progress != null && progress.IsCompleted)
-                                        {
-                                            <span class="badge bg-success">✓</span>
-                                        }
                                     </div>
                                     @{
                                         var revealed = sura.RevealedIn ? @TransliterationService.GetDisplayText("Мадина") : @TransliterationService.GetDisplayText("Макка");
                                     }
                                     <p class="card-text">@revealed (@sura.AyaCount)</p>
-                                    @if (progress != null && !progress.IsCompleted)
-                                    {
-                                        <div class="progress mt-1" style="height: 6px;">
-                                            <div class="progress-bar bg-primary" role="progressbar" style="width: @progress.ProgressPercentage%" aria-valuenow="@progress.ProgressPercentage" aria-valuemin="0" aria-valuemax="100"></div>
-                                        </div>
-                                        <small class="text-muted">@progress.AyasRead / @progress.TotalAyas</small>
-                                    }
                                 </div>
                                 <h2 class="arabic">@sura.ArabicName</h2>
                             </div>

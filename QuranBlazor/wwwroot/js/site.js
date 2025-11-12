@@ -9,6 +9,24 @@
         });
     }
 }
+
+// Try to scroll to element, returns true if successful, false if element not found
+function tryScrollToId(id) {
+    console.log("Trying to scroll to element id: " + id);
+    const element = document.getElementById(id);
+    if (element instanceof HTMLElement) {
+        element.scrollIntoView({
+            behavior: "auto",
+            block: "start",
+            inline: "nearest"
+        });
+        console.log("Successfully scrolled to element: " + id);
+        return true;
+    }
+    console.log("Element not found: " + id);
+    return false;
+}
+
 // When the user clicks the button, the page scrolls to the top
 function BlazorScrollToTop() {
     console.log("Scrolling element to top");

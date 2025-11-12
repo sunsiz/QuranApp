@@ -47,9 +47,6 @@ namespace QuranBlazor.Data
                 await _conn.CreateTableAsync<BookmarkCollection>();
                 await _conn.CreateTableAsync<AyaBookmarkCollection>();
 
-                // Create reading progress tables if they don't exist
-                await _conn.CreateTableAsync<ReadingProgress>();
-                await _conn.CreateTableAsync<AyaReadStatus>();
             }
             catch (Exception ex)
             {
@@ -132,8 +129,15 @@ namespace QuranBlazor.Data
             };
             var result = await _conn.InsertAsync(newNote);
             var aya = await _conn.Table<Aya>().FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaId);
-            aya.HasNote = true;
-            await _conn.UpdateAsync(aya);
+            if (aya != null)
+            {
+                aya.HasNote = true;
+                await _conn.UpdateAsync(aya);
+            }
+            else
+            {
+                Debug.WriteLine($"Aya not found when adding note: SuraId={suraId}, AyaId={ayaId}");
+            }
             Debug.WriteLine("Add note result is:" + result);
 
             return result;
@@ -146,10 +150,16 @@ namespace QuranBlazor.Data
             Debug.WriteLine("Delete note result is:" + noteResult);
 
             var aya = await _conn.Table<Aya>().FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaId);
-            aya.HasNote = false;
-            var result = await _conn.UpdateAsync(aya);
-            Debug.WriteLine("Delete has note from aya result is:" + result);
-            return result;
+            if (aya != null)
+            {
+                aya.HasNote = false;
+                var result = await _conn.UpdateAsync(aya);
+                Debug.WriteLine("Delete has note from aya result is:" + result);
+                return result;
+            }
+
+            Debug.WriteLine($"Aya not found when deleting note: SuraId={suraId}, AyaId={ayaId}");
+            return noteResult;
         }
 
         public async Task<int> UpdateNote(int ayaId, int suraId)
@@ -296,7 +306,7 @@ namespace QuranBlazor.Data
             
             var result = await _conn.InsertAsync(collection);
             Debug.WriteLine($"Add bookmark collection result: {result}");
-            return result;
+            return collection.Id;
         }
 
         /// <summary>
@@ -430,179 +440,6 @@ namespace QuranBlazor.Data
 
         #endregion
 
-        #region Reading Progress
-
-        /// <summary>
-        /// Get or create reading progress for a Sura
-        /// </summary>
-        public async Task<ReadingProgress> GetOrCreateReadingProgressAsync(int suraId)
-        {
-            await EnsureInitializedAsync();
-            var progress = await _conn.Table<ReadingProgress>()
-                .FirstOrDefaultAsync(rp => rp.SuraId == suraId);
-
-            if (progress == null)
-            {
-                var ayas = await GetAyaListAsync(suraId);
-                progress = new ReadingProgress
-                {
-                    SuraId = suraId,
-                    TotalAyas = ayas.Count,
-                    AyasRead = 0,
-                    FirstReadDate = DateTime.Now,
-                    LastReadDate = DateTime.Now,
-                    IsCompleted = false
-                };
-                await _conn.InsertAsync(progress);
-            }
-
-            return progress;
-        }
-
-        /// <summary>
-        /// Mark an Aya as read and update progress
-        /// </summary>
-        public async Task<int> MarkAyaAsReadAsync(int suraId, int ayaNumber)
-        {
-            await EnsureInitializedAsync();
-            var aya = await _conn.Table<Aya>()
-                .FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaNumber);
-
-            if (aya == null) return 0;
-
-            // Check if already marked as read
-            var readStatus = await _conn.Table<AyaReadStatus>()
-                .FirstOrDefaultAsync(ars => ars.AyaId == aya.Id);
-
-            if (readStatus == null)
-            {
-                readStatus = new AyaReadStatus
-                {
-                    AyaId = aya.Id,
-                    SuraId = suraId,
-                    AyaNumber = ayaNumber,
-                    IsRead = true,
-                    ReadDate = DateTime.Now,
-                    ReadCount = 1
-                };
-                await _conn.InsertAsync(readStatus);
-            }
-            else if (!readStatus.IsRead)
-            {
-                readStatus.IsRead = true;
-                readStatus.ReadDate = DateTime.Now;
-                readStatus.ReadCount++;
-                await _conn.UpdateAsync(readStatus);
-            }
-            else
-            {
-                // Already read, just increment count
-                readStatus.ReadCount++;
-                readStatus.ReadDate = DateTime.Now;
-                await _conn.UpdateAsync(readStatus);
-            }
-
-            // Update Sura progress
-            var progress = await GetOrCreateReadingProgressAsync(suraId);
-            var readAyasCount = await _conn.Table<AyaReadStatus>()
-                .Where(ars => ars.SuraId == suraId && ars.IsRead)
-                .CountAsync();
-
-            progress.AyasRead = readAyasCount;
-            progress.LastReadDate = DateTime.Now;
-
-            if (readAyasCount >= progress.TotalAyas && !progress.IsCompleted)
-            {
-                progress.IsCompleted = true;
-                progress.CompletedDate = DateTime.Now;
-            }
-
-            return await _conn.UpdateAsync(progress);
-        }
-
-        /// <summary>
-        /// Get reading progress for all Suras that have been started
-        /// </summary>
-        public async Task<List<ReadingProgress>> GetAllReadingProgressAsync()
-        {
-            await EnsureInitializedAsync();
-            try
-            {
-                return await _conn.Table<ReadingProgress>()
-                    .OrderByDescending(rp => rp.LastReadDate)
-                    .ToListAsync();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error getting reading progress: {ex.Message}");
-                return new List<ReadingProgress>();
-            }
-        }
-
-        /// <summary>
-        /// Get reading progress for a specific Sura
-        /// </summary>
-        public async Task<ReadingProgress> GetReadingProgressAsync(int suraId)
-        {
-            await EnsureInitializedAsync();
-            return await _conn.Table<ReadingProgress>()
-                .FirstOrDefaultAsync(rp => rp.SuraId == suraId);
-        }
-
-        /// <summary>
-        /// Get overall reading statistics
-        /// </summary>
-        public async Task<(int TotalSuras, int CompletedSuras, int TotalAyas, int ReadAyas)> GetReadingStatisticsAsync()
-        {
-            try
-            {
-                // Use fixed Quran numbers - 114 Suras, 6236 Ayas
-                const int TOTAL_SURAS = 114;
-                const int TOTAL_AYAS = 6236;
-                
-                var allProgress = await GetAllReadingProgressAsync();
-                var completedSuras = allProgress.Count(p => p.IsCompleted);
-                
-                var readAyas = await _conn.Table<AyaReadStatus>()
-                    .Where(ars => ars.IsRead)
-                    .CountAsync();
-
-                return (TOTAL_SURAS, completedSuras, TOTAL_AYAS, readAyas);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error getting reading statistics: {ex.Message}");
-                // Return default values on error
-                return (114, 0, 6236, 0);
-            }
-        }
-
-        /// <summary>
-        /// Get read status for all Ayas in a Sura
-        /// </summary>
-        public async Task<List<AyaReadStatus>> GetAyaReadStatusForSuraAsync(int suraId)
-        {
-            await EnsureInitializedAsync();
-            return await _conn.Table<AyaReadStatus>()
-                .Where(ars => ars.SuraId == suraId)
-                .ToListAsync();
-        }
-
-        /// <summary>
-        /// Reset reading progress for a Sura
-        /// </summary>
-        public async Task<int> ResetSuraProgressAsync(int suraId)
-        {
-            await EnsureInitializedAsync();
-            // Delete all Aya read statuses for this Sura
-            await _conn.Table<AyaReadStatus>().DeleteAsync(ars => ars.SuraId == suraId);
-            
-            // Delete the progress record
-            return await _conn.Table<ReadingProgress>().DeleteAsync(rp => rp.SuraId == suraId);
-        }
-
-        #endregion
-
         #region Favorites Migration
 
         /// <summary>
@@ -632,18 +469,22 @@ namespace QuranBlazor.Data
             
             // Check if favorites collection already exists (by name)
             var existing = await _conn.Table<BookmarkCollection>()
-                .FirstOrDefaultAsync(c => c.Name == "❤️ Belgilangan oyatlar");
+                .FirstOrDefaultAsync(c => c.Name == "❤️ Белгиланган оятлар" || c.Name == "❤️ Belgilangan oyatlar");
             
             if (existing != null)
             {
                 Debug.WriteLine($"Favorites collection already exists with ID: {existing.Id}");
+                
+                // Create sample collections if this is first run
+                await CreateSampleCollectionsAsync();
+                
                 return existing.Id;
             }
 
             var favoritesCollection = new BookmarkCollection
             {
-                Name = "❤️ Belgilangan oyatlar",
-                Description = "Sevimli oyatlaringiz",
+                Name = "❤️ Белгиланган оятлар",
+                Description = "Севимли оятларингиз",
                 CreatedDate = DateTime.Now,
                 DisplayOrder = 0,
                 ColorCode = "#DC143C" // Crimson red for favorites
@@ -652,7 +493,59 @@ namespace QuranBlazor.Data
             var result = await _conn.InsertAsync(favoritesCollection);
             Debug.WriteLine($"Created default favorites collection with ID: {favoritesCollection.Id}");
             
+            // Create sample collections for new users
+            await CreateSampleCollectionsAsync();
+            
             return favoritesCollection.Id;
+        }
+
+        /// <summary>
+        /// Create sample bookmark collections to help new users understand the feature.
+        /// Only creates them once - respects user's choice if they delete them.
+        /// </summary>
+        private async Task CreateSampleCollectionsAsync()
+        {
+            // Check if sample collections have already been created (even if user deleted them)
+            if (Preferences.Get("SampleCollectionsCreated", false))
+            {
+                Debug.WriteLine("Sample collections were already created previously, skipping");
+                return;
+            }
+
+            var sampleCollections = new[]
+            {
+                new BookmarkCollection
+                {
+                    Name = "📿 Дуолар",
+                    Description = "Муҳим дуолар ва зикрлар",
+                    CreatedDate = DateTime.Now,
+                    DisplayOrder = 1,
+                    ColorCode = "#4CAF50" // Green
+                },
+                new BookmarkCollection
+                {
+                    Name = "💡 Ҳикматли оятлар",
+                    Description = "Ҳаёт учун ҳикматлар",
+                    CreatedDate = DateTime.Now,
+                    DisplayOrder = 3,
+                    ColorCode = "#2196F3" // Blue
+                },
+                new BookmarkCollection
+                {
+                    Name = "🕌 Намоз ва ибодат",
+                    Description = "Намоз ва ибодат ҳақида оятлар",
+                    CreatedDate = DateTime.Now,
+                    DisplayOrder = 4,
+                    ColorCode = "#9C27B0" // Purple
+                }
+            };
+
+            await _conn.InsertAllAsync(sampleCollections);
+            
+            // Mark as created so we don't recreate them if user deletes them
+            Preferences.Set("SampleCollectionsCreated", true);
+            
+            Debug.WriteLine($"Created {sampleCollections.Length} sample collections");
         }
 
         /// <summary>

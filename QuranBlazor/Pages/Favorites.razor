@@ -109,13 +109,13 @@ else
                 {
                     var removed = Ayas.Remove(Ayas.Find(a => a.AyaId == aya.AyaId && a.SuraId == aya.SuraId));
                     Debug.WriteLine($"Delete favorite aya result is {removed}");
-                    MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Белгиланган оят олиб ташланди")));
+                    await Dialog.DisplayToast(TransliterationService.GetDisplayText("Белгиланган оят олиб ташланди"));
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error deleting favorite: {ex.Message}");
-                MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди")));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
             }
         }
     }

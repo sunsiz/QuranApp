@@ -1,6 +1,9 @@
+using Microsoft.Maui.ApplicationModel;
 using QuranBlazor.Data;
-using System.Text.Json;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Text.Json;
 
 namespace QuranBlazor.Services
 {
@@ -115,10 +118,13 @@ namespace QuranBlazor.Services
             try
             {
                 var filePath = await ExportToFileAsync();
-                await Share.Default.RequestAsync(new ShareFileRequest
+                await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
-                    Title = TransliterationService.GetDisplayText("Қурон иловаси маълумотларини заҳиралаш"),
-                    File = new ShareFile(filePath)
+                    await Share.Default.RequestAsync(new ShareFileRequest
+                    {
+                        Title = TransliterationService.GetDisplayText("Қурон иловаси маълумотларини заҳиралаш"),
+                        File = new ShareFile(filePath)
+                    });
                 });
             }
             catch (Exception ex)
@@ -162,11 +168,26 @@ namespace QuranBlazor.Services
                 
                 if (importData == null)
                 {
-                    return (0, 0, "Invalid JSON format");
+                    return (0, 0, "JSON формати нотўғри");
                 }
 
                 int notesImported = 0;
                 int favoritesImported = 0;
+
+                // Cache sura metadata and aya lists to avoid repetitive database round-trips
+                var suraLookup = (await _dbContext.GetSuraListAsync()).ToDictionary(s => s.Id, s => s.Name);
+                var ayaCache = new Dictionary<int, List<Aya>>();
+
+                async Task<Aya> GetAyaAsync(int suraId, int ayaNumber)
+                {
+                    if (!ayaCache.TryGetValue(suraId, out var ayasForSura))
+                    {
+                        ayasForSura = await _dbContext.GetAyaListAsync(suraId);
+                        ayaCache[suraId] = ayasForSura;
+                    }
+
+                    return ayasForSura.FirstOrDefault(a => a.AyaId == ayaNumber);
+                }
 
                 // Import Notes
                 if (importData.Notes != null)
@@ -187,11 +208,10 @@ namespace QuranBlazor.Services
                             }
                             else
                             {
-                                // Create new note - need to get sura name first
-                                var suras = await _dbContext.GetSuraListAsync();
-                                var sura = suras.FirstOrDefault(s => s.Id == noteData.SuraId);
-                                string suraName = sura?.Name ?? "Unknown";
-                                
+                                // Create new note - use cached sura name where possible
+                                suraLookup.TryGetValue(noteData.SuraId, out var suraName);
+                                suraName ??= "Номаълум";
+
                                 await _dbContext.AddNoteAsync(noteData.AyaId, noteData.SuraId, suraName, noteData.Content);
                             }
                             notesImported++;
@@ -211,8 +231,7 @@ namespace QuranBlazor.Services
                         try
                         {
                             // Get all ayas for the sura and find the specific aya
-                            var ayas = await _dbContext.GetAyaListAsync(favoriteData.SuraId);
-                            var aya = ayas.FirstOrDefault(a => a.AyaId == favoriteData.AyaId);
+                            var aya = await GetAyaAsync(favoriteData.SuraId, favoriteData.AyaId);
                             
                             if (aya != null && !aya.IsFavorite)
                             {
@@ -233,7 +252,7 @@ namespace QuranBlazor.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error importing data: {ex.Message}");
-                return (0, 0, ex.Message);
+                return (0, 0, "Маълумотларни импорт қилишда хатолик юз берди");
             }
         }
 
@@ -264,15 +283,32 @@ namespace QuranBlazor.Services
                 }
 
                 using var stream = await result.OpenReadAsync();
+                try
+                {
+                    if (stream.CanSeek && stream.Length > 512_000)
+                    {
+                        return (0, 0, "Танланган файл ҳажми жуда катта");
+                    }
+                }
+                catch (NotSupportedException)
+                {
+                    // Ignore if stream does not support length
+                }
+
                 using var reader = new StreamReader(stream);
                 var jsonContent = await reader.ReadToEndAsync();
+
+                if (jsonContent.Length > 512_000)
+                {
+                    return (0, 0, "Танланган файл ҳажми жуда катта");
+                }
 
                 return await ImportFromJsonAsync(jsonContent);
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error importing from file: {ex.Message}");
-                return (0, 0, ex.Message);
+                return (0, 0, "Маълумотларни импорт қилишда хатолик юз берди");
             }
         }
     }

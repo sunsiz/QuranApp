@@ -115,13 +115,13 @@ else
                 if (result > 0)
                 {
                     await InvokeAsync(StateHasChanged);
-                    MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Қайд янгиланди")));
+                    await Dialog.DisplayToast(TransliterationService.GetDisplayText("Қайд янгиланди"));
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error updating note: {ex.Message}");
-                MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди")));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
             }
         }
     }
@@ -144,13 +144,13 @@ else
                 {
                     var removed = notes.Remove(notes.Find(a => a.AyaId == note.AyaId && a.SuraId == note.SuraId));
                     Debug.WriteLine($"Delete note result is {removed}");
-                    MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Қайдлардан олиб ташланди")));
+                    await Dialog.DisplayToast(TransliterationService.GetDisplayText("Қайдлардан олиб ташланди"));
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error deleting note: {ex.Message}");
-                MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди")));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
             }
         }
     }

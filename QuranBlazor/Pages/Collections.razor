@@ -66,14 +66,14 @@
                                         <span class="badge me-2" style="background-color: @collection.ColorCode; width: 16px; height: 16px;"></span>
                                     }
                                     <h5 class="mb-0">@TransliterationService.GetDisplayText(collection.Name)</h5>
-                                    <span class="badge bg-secondary ms-2">@GetCollectionCount(collection.Id)</span>
+                                    <span class="badge bg-secondary mx-2">@GetCollectionCount(collection.Id)</span>
                                 </div>
                                 <div class="d-flex gap-2" @onclick:stopPropagation="true">
-                                    <button type="button" class="btn btn-link p-1 text-primary border-0" @onclick="() => EditCollection(collection)" aria-label="@TransliterationService.GetDisplayText("Тўпламни таҳрирлаш")" title="@TransliterationService.GetDisplayText("Тўпламни таҳрирлаш")">
-                                        <span class="icon-mask icon-edit svg-icon-lg" title="Edit"></span>
+                                    <button type="button" class="btn btn-link p-1 border-0 text-primary" @onclick="() => EditCollection(collection)" aria-label="@TransliterationService.GetDisplayText("Тўпламни таҳрирлаш")" title="@TransliterationService.GetDisplayText("Тўпламни таҳрирлаш")">
+                                        <span class="icon-mask icon-edit svg-icon-lg text-primary" title="Edit"></span>
                                     </button>
-                                    <button type="button" class="btn btn-link p-1 text-danger border-0" @onclick="() => DeleteCollection(collection)" aria-label="@TransliterationService.GetDisplayText("Тўпламни ўчириш")" title="@TransliterationService.GetDisplayText("Тўпламни ўчириш")">
-                                        <span class="icon-mask icon-delete svg-icon-lg" title="Delete"></span>
+                                    <button type="button" class="btn btn-link p-1 border-0 text-primary" @onclick="() => DeleteCollection(collection)" aria-label="@TransliterationService.GetDisplayText("Тўпламни ўчириш")" title="@TransliterationService.GetDisplayText("Тўпламни ўчириш")">
+                                        <span class="icon-mask icon-delete svg-icon-lg text-danger" title="Delete"></span>
                                     </button>
                                 </div>
                             </div>
@@ -212,7 +212,7 @@
             
             // Sort collections: Favorites first, then others by creation date
             collections = allCollections
-                .OrderByDescending(c => c.Name.Contains("Belgilangan oyatlar"))
+                .OrderByDescending(c => c.Name.Contains("Белгиланган") || c.Name.Contains("Belgilangan"))
                 .ThenBy(c => c.CreatedDate)
                 .ToList();
             
@@ -272,7 +272,7 @@
     {
         if (string.IsNullOrWhiteSpace(editingCollection.Name))
         {
-            Dialog.DisplayToast(TransliterationService.GetDisplayText("Илтимос, ном киритинг"));
+            await Dialog.DisplayToast(TransliterationService.GetDisplayText("Илтимос, ном киритинг"));
             return;
         }
 
@@ -281,12 +281,12 @@
             if (editingCollection.Id == 0)
             {
                 await db.AddBookmarkCollectionAsync(editingCollection);
-                Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўплам муваффақиятли яратилди"));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўплам муваффақиятли яратилди"));
             }
             else
             {
                 await db.UpdateBookmarkCollectionAsync(editingCollection);
-                Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўплам муваффақиятли янгиланди"));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўплам муваффақиятли янгиланди"));
             }
 
             CloseEditDialog();
@@ -295,7 +295,7 @@
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error saving collection: {ex.Message}");
-            Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди. Қайта уриниб кўринг."));
+            await Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди. Қайта уриниб кўринг."));
         }
     }
 
@@ -318,13 +318,13 @@
             try
             {
                 await db.DeleteBookmarkCollectionAsync(collection.Id);
-                Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўплам муваффақиятли ўчирилди"));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўплам муваффақиятли ўчирилди"));
                 await LoadCollectionsAsync();
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error deleting collection: {ex.Message}");
-                Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди. Қайта уриниб кўринг."));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди. Қайта уриниб кўринг."));
             }
         }
     }
@@ -376,14 +376,14 @@
                     // Update count
                     collectionCounts[collectionId] = collectionCounts[collectionId] - 1;
                     
-                    Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят тўпламдан олиб ташланди"));
+                    await Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят тўпламдан олиб ташланди"));
                     StateHasChanged();
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error removing aya from collection: {ex.Message}");
-                Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди. Қайта уриниб кўринг."));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди. Қайта уриниб кўринг."));
             }
         }
     }

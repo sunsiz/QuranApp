@@ -147,14 +147,14 @@
                 if (targetAya != null)
                 {
                     await db.RemoveAyaFromCollectionAsync(targetAya.Id, CollectionId);
-                    Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят муваффақиятли олиб ташланди"));
+                    await Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят муваффақиятли олиб ташланди"));
                     await LoadDataAsync();
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error removing from collection: {ex.Message}");
-                Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди. Қайта уриниб кўринг."));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди. Қайта уриниб кўринг."));
             }
         }
     }

@@ -4,6 +4,7 @@
 @using System.Text.RegularExpressions
 @using System.Diagnostics
 @using QuranBlazor.Services
+@using Microsoft.AspNetCore.Components.Web.Virtualization
 @inject DbContext db
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavigationManager
@@ -29,12 +30,15 @@
     private string errorMessage;
     private bool preventScrollToFragment;
     private bool isUserInitiatedBackToTop = false;
-    private IEnumerable<Aya> Ayas { get; set; }
-    private IEnumerable<Aya> AllAyas { get; set; }
+    private List<Aya> Ayas { get; set; } = new();
+    private List<Aya> AllAyas { get; set; } = new();
     private int _currentSuraIdForPage;
     private string _previousFragment = string.Empty;
     private IDisposable _locationChangingHandler;
     private DebounceTimer _debounceTimer;
+    private bool useVirtualize = true;
+    private const int VirtualizationAyaThreshold = 150;
+    private bool suspendFragmentRestore;
 
     private static readonly Regex CommentLinkRegex = new Regex(@"\(([^)]+)\)", RegexOptions.Compiled);
 
@@ -49,14 +53,16 @@
     private async Task Bookmark(Aya aya)
     {
         preventScrollToFragment = true; // Set the flag when Bookmark is called
+        suspendFragmentRestore = true;
         Preferences.Set(PreferenceKeys.Bookmark, aya.SuraId + ":" + aya.AyaId);
         bookmarkAya = aya.SuraId + ":" + aya.AyaId;
-        Dialog.DisplayToast(TransliterationService.GetDisplayText("Сўнги ўқиган оятингиз деб белгиланди"));
+        await Dialog.DisplayToast(TransliterationService.GetDisplayText("Сўнги ўқиган оятингиз деб белгиланди"));
     }
 
     private async Task NoteAsync(Aya aya)
     {
         preventScrollToFragment = true; // Set the flag when Note is called
+        suspendFragmentRestore = true;
         if (aya.HasNote)
         {
             var confirmed = await Dialog.DisplayAlert(TransliterationService.GetDisplayText("Огоҳлантириш"), TransliterationService.GetDisplayText("Бу оят учун аллақачон эслатма қўшилган, агар давом этсангиз эски эслатма ўчирилади, уни ўчириб ташламоқчимисиз?"), TransliterationService.GetDisplayText("Ҳа, эскисини ўчириб ташланг"), TransliterationService.GetDisplayText("Йўқ")).ConfigureAwait(false);
@@ -64,7 +70,10 @@
             aya.HasNote = false;
             await db.UpdateAyaAsync(aya).ConfigureAwait(false);
             var result = await db.DeleteNoteAsync(aya.AyaId, aya.SuraId);
-            if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят қайди ўчирилди")));
+            if (result > 0)
+            {
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят қайди ўчирилди"));
+            }
         }
         else
         {
@@ -73,7 +82,10 @@
             var result = await db.AddNoteAsync(aya.AyaId, aya.SuraId, SuraName, note);
             aya.HasNote = true;
             // await db.UpdateAyaAsync(aya).ConfigureAwait(false);
-            if (result > 0) MainThread.BeginInvokeOnMainThread(() => Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят эслатмаси қўшилди")));
+            if (result > 0)
+            {
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Оят эслатмаси қўшилди"));
+            }
         }
 
     }
@@ -81,6 +93,7 @@
     private async Task ShowCollectionsDialog(Aya aya)
     {
         preventScrollToFragment = true;
+        suspendFragmentRestore = true;
         selectedAyaForCollection = aya;
         
         try
@@ -95,7 +108,7 @@
         catch (Exception ex)
         {
             Debug.WriteLine($"Error loading collections: {ex.Message}");
-            Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
+            await Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
         }
     }
 
@@ -124,7 +137,7 @@
     {
         if (string.IsNullOrWhiteSpace(newCollectionName))
         {
-            Dialog.DisplayToast(TransliterationService.GetDisplayText("Илтимос, тўплам номини киритинг"));
+            await Dialog.DisplayToast(TransliterationService.GetDisplayText("Илтимос, тўплам номини киритинг"));
             return;
         }
 
@@ -138,6 +151,11 @@
             };
             
             var collectionId = await db.AddBookmarkCollectionAsync(newCollection);
+            if (collectionId <= 0)
+            {
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Янги тўпламни сақлашда хатолик"));
+                return;
+            }
             
             // Add current aya to the new collection
             if (selectedAyaForCollection != null)
@@ -145,6 +163,8 @@
                 await db.AddAyaToCollectionAsync(selectedAyaForCollection.Id, collectionId);
             }
             
+
+            suspendFragmentRestore = true;
             // Reload collections to show the new one
             availableCollections = await db.GetBookmarkCollectionsAsync();
             var collections = await db.GetCollectionsForAyaAsync(selectedAyaForCollection.SuraId, selectedAyaForCollection.AyaId);
@@ -157,18 +177,19 @@
             showCreateNewInDialog = false;
             newCollectionName = string.Empty;
             
-            Dialog.DisplayToast(TransliterationService.GetDisplayText("Янги тўплам яратилди ва оят қўшилди"));
+            await Dialog.DisplayToast(TransliterationService.GetDisplayText("Янги тўплам яратилди ва оят қўшилди"));
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error creating collection: {ex.Message}");
-            Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
+            await Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
         }
     }
 
     private async Task ToggleCollection(int collectionId)
     {
         if (selectedAyaForCollection == null) return;
+        suspendFragmentRestore = true;
 
         try
         {
@@ -176,13 +197,13 @@
             {
                 await db.RemoveAyaFromCollectionAsync(selectedAyaForCollection.Id, collectionId);
                 ayaCollections.Remove(collectionId);
-                Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўпламдан олиб ташланди"));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўпламдан олиб ташланди"));
             }
             else
             {
                 await db.AddAyaToCollectionAsync(selectedAyaForCollection.Id, collectionId);
                 ayaCollections.Add(collectionId);
-                Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўпламга қўшилди"));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўпламга қўшилди"));
             }
             
             // Update IsFavorite flag based on whether aya is in any collection
@@ -192,7 +213,7 @@
         catch (Exception ex)
         {
             Debug.WriteLine($"Error toggling collection: {ex.Message}");
-            Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
+            await Dialog.DisplayToast(TransliterationService.GetDisplayText("Хатолик юз берди"));
         }
     }
 
@@ -245,7 +266,9 @@
             AllAyas = await db.GetAyaListAsync(SuraId).ConfigureAwait(false);
             Ayas = AllAyas;
             SuraName = await db.GetSuraNameAsync(SuraId).ConfigureAwait(false);
+            await UpdateVirtualizationModeAsync().ConfigureAwait(false);
             isDataLoaded = true;
+            suspendFragmentRestore = false;
         }
         catch (Exception ex)
         {
@@ -266,7 +289,7 @@
             var fragment = uri.Fragment;
 
             // Skip all scroll operations if user clicked back-to-top
-            if (!isUserInitiatedBackToTop && !preventScrollToFragment)
+            if (!isUserInitiatedBackToTop && !preventScrollToFragment && !suspendFragmentRestore)
             {
                 if (!string.IsNullOrEmpty(fragment) && fragment.StartsWith('#'))
                 {
@@ -313,7 +336,7 @@
         }
     }
 
-    private void HandleLocationChanged(object sender, LocationChangedEventArgs e)
+    private async void HandleLocationChanged(object sender, LocationChangedEventArgs e)
     {
         var newUri = new Uri(e.Location, UriKind.Absolute);
         var newFragment = newUri.Fragment;
@@ -327,10 +350,18 @@
         if (newSuraIdFromQuery == _currentSuraIdForPage && newFragment != _previousFragment)
         {
             Debug.WriteLine($"HandleLocationChanged: Fragment changed for SuraId {newSuraIdFromQuery}. Triggering StateHasChanged.");
-            InvokeAsync(StateHasChanged);
+            suspendFragmentRestore = false;
+            await InvokeAsync(StateHasChanged);
         }
 
         _previousFragment = newFragment;
+
+        await UpdateVirtualizationModeAsync();
+
+        if (newSuraIdFromQuery != _currentSuraIdForPage)
+        {
+            suspendFragmentRestore = false;
+        }
     }
 
     private void HandleScriptChanged()
@@ -410,15 +441,75 @@
 
             if (!string.IsNullOrEmpty(elementId))
             {
-                await Task.Delay(500);
-                await JsRuntime.InvokeVoidAsync("BlazorScrollToId", elementId);
+                // For virtualized content, we need to retry scrolling
+                // because the element might not be rendered yet
+                await ScrollToElementWithRetry(elementId, maxAttempts: 10, delayMs: 200);
             }
+        }
+    }
+    
+    private async Task UpdateVirtualizationModeAsync()
+    {
+        var uri = new Uri(NavigationManager.Uri, UriKind.Absolute);
+        var fragment = uri.Fragment;
+
+        bool hasFragment = !string.IsNullOrEmpty(fragment) && fragment.StartsWith('#');
+        bool isFilterActive = !string.IsNullOrWhiteSpace(AyaFilter);
+
+        int totalAyaCount = AllAyas?.Count ?? 0;
+
+        bool shouldVirtualize = !hasFragment && !isFilterActive && totalAyaCount >= VirtualizationAyaThreshold;
+
+        if (useVirtualize != shouldVirtualize)
+        {
+            await InvokeAsync(() =>
+            {
+                useVirtualize = shouldVirtualize;
+                StateHasChanged();
+            });
+        }
+    }
+    
+    private async Task ScrollToElementWithRetry(string elementId, int maxAttempts = 12, int delayMs = 150)
+    {
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            try
+            {
+                // Try to scroll to the element
+                var success = await JsRuntime.InvokeAsync<bool>("tryScrollToId", elementId);
+                
+                if (success)
+                {
+                    Debug.WriteLine($"Successfully scrolled to {elementId} on attempt {attempt + 1}");
+                    return;
+                }
+                
+                await Task.Delay(delayMs);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error scrolling to {elementId}: {ex.Message}");
+                await Task.Delay(delayMs);
+            }
+        }
+        
+        // Final fallback: try the old method
+        Debug.WriteLine($"All attempts failed, trying fallback scroll for {elementId}");
+        try
+        {
+            await JsRuntime.InvokeVoidAsync("BlazorScrollToId", elementId);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Fallback scroll also failed: {ex.Message}");
         }
     }
     private async Task BackToTop()
     {
         isUserInitiatedBackToTop = true;
         preventScrollToFragment = true;
+        suspendFragmentRestore = true;
         
         // Scroll to actual top
         await JsRuntime.InvokeVoidAsync("BlazorScrollToTop");
@@ -435,42 +526,44 @@
         // Reset flags after a delay
         await Task.Delay(100);
         isUserInitiatedBackToTop = false;
+        suspendFragmentRestore = false;
         StateHasChanged();
     }
 
     string AyaFilter;
     private void FilterAya()
     {
-        _debounceTimer.Debounce(() =>
+        _debounceTimer.Debounce(async () =>
         {
-            InvokeAsync(() =>
+            if (string.IsNullOrWhiteSpace(AyaFilter))
             {
-                if (string.IsNullOrWhiteSpace(AyaFilter))
+                Ayas = AllAyas;
+            }
+            else
+            {
+                bool toLatin = Preferences.Get(PreferenceKeys.UzbekScript, PreferenceKeys.DefaultScript) == "Latin";
+                string filterTerm = AyaFilter;
+                Ayas = AllAyas.Where(a =>
                 {
-                    Ayas = AllAyas;
-                }
-                else
-                {
-                    bool toLatin = Preferences.Get(PreferenceKeys.UzbekScript, PreferenceKeys.DefaultScript) == "Latin";
-                    string filterTerm = AyaFilter;
-                    Ayas = AllAyas.Where(a =>
-                    {
-                        string text = toLatin ? TransliterationService.ToLatin(a.Text) : a.Text;
-                        string comment = (a.Comment != null) ? (toLatin ? TransliterationService.ToLatin(a.Comment) : a.Comment) : null;
-                        bool textMatch = text?.IndexOf(filterTerm, StringComparison.InvariantCultureIgnoreCase) >= 0;
-                        bool commentMatch = comment?.IndexOf(filterTerm, StringComparison.InvariantCultureIgnoreCase) >= 0;
-                        return textMatch || commentMatch;
-                    }).ToList();
-                }
-                StateHasChanged();
-            });
+                    string text = toLatin ? TransliterationService.ToLatin(a.Text) : a.Text;
+                    string comment = (a.Comment != null) ? (toLatin ? TransliterationService.ToLatin(a.Comment) : a.Comment) : null;
+                    bool textMatch = text?.IndexOf(filterTerm, StringComparison.InvariantCultureIgnoreCase) >= 0;
+                    bool commentMatch = comment?.IndexOf(filterTerm, StringComparison.InvariantCultureIgnoreCase) >= 0;
+                    return textMatch || commentMatch;
+                }).ToList();
+            }
+
+            await UpdateVirtualizationModeAsync();
+            await InvokeAsync(StateHasChanged);
         });
     }
 
-    private void ClearAyaSearch()
+    private async Task ClearAyaSearch()
     {
         AyaFilter = string.Empty;
         Ayas = AllAyas;
+        await UpdateVirtualizationModeAsync();
+        await InvokeAsync(StateHasChanged);
     }
 
     private string StripHtml(string input)
@@ -484,6 +577,7 @@
 
     private async Task ShareAya(Aya aya)
     {
+        suspendFragmentRestore = true;
         string suraNameDisplay = TransliterationService.GetDisplayText(SuraName);
         string ayaTextDisplay = TransliterationService.GetDisplayText(aya.Text);
         string plainCommentDisplay = TransliterationService.GetDisplayText(StripHtml(aya.Comment));
@@ -606,56 +700,112 @@ else
 {
     @if (Ayas != null)
     {
-        @foreach (Aya aya in Ayas)
+        if (useVirtualize)
         {
-            <div class="row my-3" id="@aya.AyaId">
-                <div class="col">
-                    <div class="card bg-light bg-gradient rounded-pill">
-                        <div class="card-body">
-                            <div class="vstack">
-                                <h5 class="card-title header-bg-color hstack rounded-3 gap-3 text-white ">
-                                    <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1" aria-label="@TransliterationService.GetDisplayText("Оят рақами")">@aya.AyaId</span>
-                                    <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="async () => await ShareAya(aya)" aria-label="@TransliterationService.GetDisplayText("Оятни баҳам кўриш")" title="@TransliterationService.GetDisplayText("Оятни баҳам кўриш")">
-                                        <img src="share.svg" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
-                                    </button>
-                                    <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="() => ShowCollectionsDialog(aya)" aria-label="@(aya.IsFavorite ? TransliterationService.GetDisplayText("Тўпламларда") : TransliterationService.GetDisplayText("Тўпламларга қўшиш"))" title="@(aya.IsFavorite ? TransliterationService.GetDisplayText("Тўпламларда") : TransliterationService.GetDisplayText("Тўпламларга қўшиш"))">
-                                        <img src="@(aya.IsFavorite ? "favorite_fill.svg" : "favorite.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
-                                    </button>
-                                    <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="() => NoteAsync(aya)" aria-label="@(aya.HasNote ? TransliterationService.GetDisplayText("Қайдни таҳрирлаш ёки ўчириш") : TransliterationService.GetDisplayText("Қайд қўшиш"))" title="@(aya.HasNote ? TransliterationService.GetDisplayText("Қайдни таҳрирлаш ёки ўчириш") : TransliterationService.GetDisplayText("Қайд қўшиш"))">
-                                        <img src="@(aya.HasNote ? "edit_note.svg" : "note_add.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
-                                    </button>
-                                    <button type="button" class="btn btn-link p-0 border-0 bg-transparent me-3" style="min-width: 44px; min-height: 44px;" @onclick="() => Bookmark(aya)" aria-label="@TransliterationService.GetDisplayText("Сўнги ўқилган оят деб белгилаш")" title="@TransliterationService.GetDisplayText("Сўнги ўқилган оят деб белгилаш")">
-                                        <img src="@((SuraId + ":" + aya.AyaId == bookmarkAya) ? "bookmark_fill.svg" : "bookmark_add.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
-                                    </button>
-                                </h5>
-                                <p class="arabic mb-0 me-2 " style=@arabicStyle>@aya.Arabic</p>
-                                @if (string.IsNullOrEmpty(AyaFilter))
-                                {
-                                    <p class="my-2" style=@textStyle>@((MarkupString)TransliterationService.GetDisplayText(aya.Text))</p>
-                                    if (aya.Comment != null)
+            <Virtualize Items="@Ayas" Context="aya" OverscanCount="5">
+                <div class="row my-3" id="@aya.AyaId">
+                    <div class="col">
+                        <div class="card bg-light bg-gradient rounded-pill">
+                            <div class="card-body">
+                                <div class="vstack">
+                                    <h5 class="card-title header-bg-color hstack rounded-3 gap-3 text-white ">
+                                        <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1" aria-label="@TransliterationService.GetDisplayText("Оят рақами")">@aya.AyaId</span>
+                                        <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="async () => await ShareAya(aya)" aria-label="@TransliterationService.GetDisplayText("Оятни баҳам кўриш")" title="@TransliterationService.GetDisplayText("Оятни баҳам кўриш")">
+                                            <img src="share.svg" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                        </button>
+                                        <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="() => ShowCollectionsDialog(aya)" aria-label="@(aya.IsFavorite ? TransliterationService.GetDisplayText("Тўпламларда") : TransliterationService.GetDisplayText("Тўпламларга қўшиш"))" title="@(aya.IsFavorite ? TransliterationService.GetDisplayText("Тўпламларда") : TransliterationService.GetDisplayText("Тўпламларга қўшиш"))">
+                                            <img src="@(aya.IsFavorite ? "favorite_fill.svg" : "favorite.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                        </button>
+                                        <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="() => NoteAsync(aya)" aria-label="@(aya.HasNote ? TransliterationService.GetDisplayText("Қайдни таҳрирлаш ёки ўчириш") : TransliterationService.GetDisplayText("Қайд қўшиш"))" title="@(aya.HasNote ? TransliterationService.GetDisplayText("Қайдни таҳрирлаш ёки ўчириш") : TransliterationService.GetDisplayText("Қайд қўшиш"))">
+                                            <img src="@(aya.HasNote ? "edit_note.svg" : "note_add.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                        </button>
+                                        <button type="button" class="btn btn-link p-0 border-0 bg-transparent me-3" style="min-width: 44px; min-height: 44px;" @onclick="() => Bookmark(aya)" aria-label="@TransliterationService.GetDisplayText("Сўнги ўқилган оят деб белгилаш")" title="@TransliterationService.GetDisplayText("Сўнги ўқилган оят деб белгилаш")">
+                                            <img src="@((SuraId + ":" + aya.AyaId == bookmarkAya) ? "bookmark_fill.svg" : "bookmark_add.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                        </button>
+                                    </h5>
+                                    <p class="arabic mb-0 me-2 " style=@arabicStyle>@aya.Arabic</p>
+                                    @if (string.IsNullOrEmpty(AyaFilter))
                                     {
-                                        <hr />
-                                        <p style=@commentStyle>@((MarkupString)ProcessComment(aya.Comment))</p>
+                                        <p class="my-2" style=@textStyle>@((MarkupString)TransliterationService.GetDisplayText(aya.Text))</p>
+                                        if (aya.Comment != null)
+                                        {
+                                            <hr />
+                                            <p style=@commentStyle>@((MarkupString)ProcessComment(aya.Comment))</p>
+                                        }
                                     }
-                                }
-                                else
-                                {
-                                    <p class="my-2" style=@textStyle>
-                                        @((MarkupString)TransliterationService.GetDisplayText(aya.Text).Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
-                                    </p>
-                                    @if (aya.Comment != null)
+                                    else
                                     {
-                                        <hr />
-                                        <p style=@commentStyle>
-                                            @((MarkupString)ProcessComment(aya.Comment).Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
+                                        <p class="my-2" style=@textStyle>
+                                            @((MarkupString)TransliterationService.GetDisplayText(aya.Text).Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
                                         </p>
+                                        @if (aya.Comment != null)
+                                        {
+                                            <hr />
+                                            <p style=@commentStyle>
+                                                @((MarkupString)ProcessComment(aya.Comment).Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
+                                            </p>
+                                        }
                                     }
-                                }
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </Virtualize>
+        }
+        else
+        {
+            foreach (var aya in Ayas)
+            {
+                <div class="row my-3" id="@aya.AyaId">
+                    <div class="col">
+                        <div class="card bg-light bg-gradient rounded-pill">
+                            <div class="card-body">
+                                <div class="vstack">
+                                    <h5 class="card-title header-bg-color hstack rounded-3 gap-3 text-white ">
+                                        <span class="bg-gradient border-3 rounded-2 shadow-lg me-auto p-2 ms-1" aria-label="@TransliterationService.GetDisplayText("Оят рақами")">@aya.AyaId</span>
+                                        <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="async () => await ShareAya(aya)" aria-label="@TransliterationService.GetDisplayText("Оятни баҳам кўриш")" title="@TransliterationService.GetDisplayText("Оятни баҳам кўриш")">
+                                            <img src="share.svg" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                        </button>
+                                        <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="() => ShowCollectionsDialog(aya)" aria-label="@(aya.IsFavorite ? TransliterationService.GetDisplayText("Тўпламларда") : TransliterationService.GetDisplayText("Тўпламларга қўшиш"))" title="@(aya.IsFavorite ? TransliterationService.GetDisplayText("Тўпламларда") : TransliterationService.GetDisplayText("Тўпламларга қўшиш"))">
+                                            <img src="@(aya.IsFavorite ? "favorite_fill.svg" : "favorite.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                        </button>
+                                        <button type="button" class="btn btn-link p-0 border-0 bg-transparent" style="min-width: 44px; min-height: 44px;" @onclick="() => NoteAsync(aya)" aria-label="@(aya.HasNote ? TransliterationService.GetDisplayText("Қайдни таҳрирлаш ёки ўчириш") : TransliterationService.GetDisplayText("Қайд қўшиш"))" title="@(aya.HasNote ? TransliterationService.GetDisplayText("Қайдни таҳрирлаш ёки ўчириш") : TransliterationService.GetDisplayText("Қайд қўшиш"))">
+                                            <img src="@(aya.HasNote ? "edit_note.svg" : "note_add.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                        </button>
+                                        <button type="button" class="btn btn-link p-0 border-0 bg-transparent me-3" style="min-width: 44px; min-height: 44px;" @onclick="() => Bookmark(aya)" aria-label="@TransliterationService.GetDisplayText("Сўнги ўқилган оят деб белгилаш")" title="@TransliterationService.GetDisplayText("Сўнги ўқилган оят деб белгилаш")">
+                                            <img src="@((SuraId + ":" + aya.AyaId == bookmarkAya) ? "bookmark_fill.svg" : "bookmark_add.svg")" class="svg-icon svg-icon-lg svg-icon-white" alt="" />
+                                        </button>
+                                    </h5>
+                                    <p class="arabic mb-0 me-2 " style=@arabicStyle>@aya.Arabic</p>
+                                    @if (string.IsNullOrEmpty(AyaFilter))
+                                    {
+                                        <p class="my-2" style=@textStyle>@((MarkupString)TransliterationService.GetDisplayText(aya.Text))</p>
+                                        if (aya.Comment != null)
+                                        {
+                                            <hr />
+                                            <p style=@commentStyle>@((MarkupString)ProcessComment(aya.Comment))</p>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <p class="my-2" style=@textStyle>
+                                            @((MarkupString)TransliterationService.GetDisplayText(aya.Text).Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
+                                        </p>
+                                        @if (aya.Comment != null)
+                                        {
+                                            <hr />
+                                            <p style=@commentStyle>
+                                                @((MarkupString)ProcessComment(aya.Comment).Replace(AyaFilter, "<span class='search-term'>" + AyaFilter + "</span>", StringComparison.OrdinalIgnoreCase))
+                                            </p>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
         }
     }
     <div id="BackToTop" class="Shown" @onclick="BackToTop"></div>
