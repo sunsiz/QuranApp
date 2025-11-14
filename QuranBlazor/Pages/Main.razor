@@ -86,7 +86,7 @@
                     <div class="text-center mb-2">
                     <img src="routine.svg" class="svg-icon svg-icon-xxl svg-icon-primary" alt="script" />
                     </div>
-                    <div class="btn-group w-100 px-2" role="group" aria-label="Theme selection">
+                    <div class="btn-group w-100 px-1" role="group" aria-label="Theme selection">
                         <input type="radio" class="btn-check" name="themeToggle" id="themeToggleLight" value="Light" autocomplete="off" checked="@(!ThemeService.IsDarkMode)" @onchange="@(() => SetTheme("Light"))">
                         <label class="btn btn-outline-secondary btn-sm rounded-start-pill d-flex align-items-center justify-content-center" for="themeToggleLight">
                             <span class="icon-mask icon-light-mode svg-icon-md me-1" aria-hidden="true"></span>
@@ -108,7 +108,7 @@
                     <div class="text-center mb-2">
                         <img src="translate.svg" class="svg-icon svg-icon-xxl svg-icon-primary" alt="script" />
                     </div>
-                    <div class="btn-group w-100 px-2" role="group" aria-label="Script selection">
+                    <div class="btn-group w-100 px-1" role="group" aria-label="Script selection">
                         <input type="radio" class="btn-check" name="scriptToggle" id="scriptToggleCyrillic" value="Cyrillic" autocomplete="off" checked="@(!TransliterationService.IsLatinScriptSelected)" @onchange="@(() => SetScript("Cyrillic"))">
                         <label class="btn btn-outline-secondary btn-sm rounded-start-pill" for="scriptToggleCyrillic">Кириллча</label>
 
@@ -125,7 +125,7 @@
             <div class="d-flex justify-content-evenly">
                 <a href="https://www.facebook.com/groups/178024384287085/?ref=share&mibextid=SDPelY"><img src="facebook.svg" class="mx-2 svg-icon svg-icon-xl" alt="facebook" /></a>
                 @* <a href=""><img src="instagram.svg" width="32px" height="32px" class="mx-2" alt="instagram" /></a> *@
-                <a href="https://t.me/Quron_izidan"><img src="telegram.svg" class="mx-2 svg-icon svg-icon-xl" alt="telegram" /></a>
+                <a href="https://t.me/quronizidan"><img src="telegram.svg" class="mx-2 svg-icon svg-icon-xl" alt="telegram" /></a>
             </div>
         </div>
     </div>

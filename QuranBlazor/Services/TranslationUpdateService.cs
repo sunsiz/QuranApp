@@ -301,7 +301,7 @@ namespace QuranBlazor.Services
         /// </summary>
         public string GetCurrentDatabaseVersion()
         {
-            return Preferences.Get(PreferenceKeys.DatabaseVersion, "1.0.0");
+            return Preferences.Get(PreferenceKeys.DatabaseVersion, "2.0");
         }
 
         /// <summary>
