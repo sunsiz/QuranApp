@@ -51,6 +51,22 @@ namespace QuranBlazor.Services
         /// </summary>
         public const string LastUpdateCheck = "LastUpdateCheck";
 
+        // Display preferences
+        /// <summary>
+        /// Key for storing whether to show Arabic text (default: true)
+        /// </summary>
+        public const string ShowArabicText = "ShowArabicText";
+
+        /// <summary>
+        /// Key for storing whether to show translation text (default: true)
+        /// </summary>
+        public const string ShowTranslation = "ShowTranslation";
+
+        /// <summary>
+        /// Key for storing whether to show footnotes/comments (default: true)
+        /// </summary>
+        public const string ShowFootnotes = "ShowFootnotes";
+
         // Default values
         public const string DefaultBookmark = "49:11";
         public const string DefaultScript = "Cyrillic";

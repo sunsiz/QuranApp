@@ -23,7 +23,7 @@ namespace QuranBlazor.Services
 
         public static string GetDisplayText(string originalText) // Renamed parameter for clarity
         {
-            if (string.IsNullOrEmpty(originalText)) return originalText;
+            if (string.IsNullOrEmpty(originalText)) return originalText ?? string.Empty;
 
             string targetScript = Preferences.Get(PreferenceKeys.UzbekScript, PreferenceKeys.DefaultScript);
 
@@ -47,24 +47,30 @@ namespace QuranBlazor.Services
         public static bool IsPotentiallyLatin(string text)
         {
             if (string.IsNullOrEmpty(text)) return false;
+            
             int latinChars = 0;
             int cyrillicChars = 0;
+            int checkedChars = 0;
+            const int maxCharsToCheck = 100;
+            
             foreach (char c in text)
             {
-                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == 'ʻ' || c == '’') // Common Latin or apostrophes used in Latin Uzbek
+                if (checkedChars++ >= maxCharsToCheck) break;
+
+                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == 'ʻ' || c == '’')
                 {
                     latinChars++;
                 }
-                else if (c >= 'А' && c <= 'я' || c == 'Ў' || c == 'ў' || c == 'Қ' || c == 'қ' || c == 'Ғ' || c == 'ғ' || c == 'Ҳ' || c == 'ҳ')
+                else if ((c >= 'А' && c <= 'я') || c == 'Ў' || c == 'ў' || c == 'Қ' || c == 'қ' || c == 'Ғ' || c == 'ғ' || c == 'Ҳ' || c == 'ҳ')
                 {
                     cyrillicChars++;
                 }
             }
-            // If more Latin-specific chars than Cyrillic, or some Latin and no Cyrillic, assume Latin.
+            
             return latinChars > cyrillicChars || (latinChars > 0 && cyrillicChars == 0);
         }
 
-        private static readonly Dictionary<char, string> CyrillicToLatinMap = new Dictionary<char, string>
+        private static readonly Dictionary<char, string> CyrillicToLatinMap = new()
         {
             { 'А', "A" }, { 'а', "a" }, { 'Б', "B" }, { 'б', "b" }, { 'Д', "D" }, { 'д', "d" },
             { 'Э', "E" }, { 'э', "e" }, { 'Ф', "F" }, { 'ф', "f" }, { 'Г', "G" }, { 'г', "g" },
@@ -78,11 +84,10 @@ namespace QuranBlazor.Services
             { 'Ч', "Ch" }, { 'ч', "ch" }, { 'Ъ', "ʼ" }, { 'ъ', "ʼ" }, { 'Ё', "Yo" }, { 'ё', "yo" },
             { 'Ю', "Yu" }, { 'ю', "yu" }, { 'Я', "Ya" }, { 'я', "ya" }, { 'Ц', "Ts" }, { 'ц', "ts" },
         };
-        // Very basic ToCyrillic - needs significant improvement for accuracy
-        private static readonly Dictionary<string, string> LatinToCyrillicMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly Dictionary<string, string> LatinToCyrillicMap = new(StringComparer.OrdinalIgnoreCase)
         {
             { "A", "А" }, { "B", "Б" }, { "V", "В" }, { "G", "Г" },
-            { "D", "Д" }, { "Ye", "Е" }, { "E", "Е" }, // Simplified
+            { "D", "Д" }, { "Ye", "Е" }, { "E", "Е" },
             { "Yo", "Ё" }, { "J", "Ж" }, { "Z", "З" }, { "I", "И" },
             { "Y", "Й" }, { "K", "К" }, { "L", "Л" }, { "M", "М" },
             { "N", "Н" }, { "O", "О" }, { "P", "П" }, { "R", "Р" },
@@ -90,16 +95,16 @@ namespace QuranBlazor.Services
             { "X", "Х" }, { "Ts", "Ц" }, { "Ch", "Ч" }, { "Sh", "Ш" },
             { "Yu", "Ю" }, { "Ya", "Я" }, { "Oʻ", "Ў" }, { "Q", "Қ" },
             { "Gʻ", "Ғ" }, { "H", "Ҳ" }
-            // This needs to handle digraphs (sh, ch, gʻ, oʻ) carefully during conversion
         };
 
         public static string ToLatin(string cyrillicText)
         {
-            if (string.IsNullOrEmpty(cyrillicText)) return cyrillicText;
+            if (string.IsNullOrEmpty(cyrillicText)) return cyrillicText ?? string.Empty;
 
             return _toLatinCache.GetOrAdd(cyrillicText, text =>
             {
-                var latinText = new StringBuilder(text.Length);
+                var latinText = new StringBuilder(text.Length + (text.Length / 4)); // Extra capacity for digraphs
+                
                 foreach (char c in text)
                 {
                     if (CyrillicToLatinMap.TryGetValue(c, out var latinChar))
@@ -108,26 +113,28 @@ namespace QuranBlazor.Services
                     }
                     else
                     {
-                        latinText.Append(c); // Append original if no mapping (e.g., punctuation)
+                        latinText.Append(c);
                     }
                 }
+                
                 return latinText.ToString();
             });
         }
 
-        // Add ToCyrillic if needed for search keyword conversion
         public static string ToCyrillic(string latinText)
         {
-            if (string.IsNullOrEmpty(latinText)) return latinText;
+            if (string.IsNullOrEmpty(latinText)) return latinText ?? string.Empty;
 
             return _toCyrillicCache.GetOrAdd(latinText, text =>
             {
                 var cyrillicText = new StringBuilder(text.Length);
                 int i = 0;
+                
                 while (i < text.Length)
                 {
                     bool matched = false;
-                    // Check for 2-character sequences first (e.g., "Oʻ", "Gʻ", "Sh", "Ch")
+                    
+                    // Check for 2-character sequences first
                     if (i + 1 < text.Length)
                     {
                         string twoCharSeq = text.Substring(i, 2);
@@ -138,7 +145,8 @@ namespace QuranBlazor.Services
                             matched = true;
                         }
                     }
-                    // If no 2-character match, check for 1-character
+                    
+                    // Check for 1-character if no 2-character match
                     if (!matched)
                     {
                         string oneCharSeq = text.Substring(i, 1);
@@ -148,11 +156,12 @@ namespace QuranBlazor.Services
                         }
                         else
                         {
-                            cyrillicText.Append(oneCharSeq); // Append original if no mapping
+                            cyrillicText.Append(oneCharSeq);
                         }
-                        i += 1;
+                        i++;
                     }
                 }
+                
                 return cyrillicText.ToString();
             });
         }

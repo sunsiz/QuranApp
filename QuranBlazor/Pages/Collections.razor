@@ -280,7 +280,12 @@
         {
             if (editingCollection.Id == 0)
             {
-                await db.AddBookmarkCollectionAsync(editingCollection);
+                var result = await db.AddBookmarkCollectionAsync(editingCollection);
+                if (result <= 0)
+                {
+                    await Dialog.DisplayToast(TransliterationService.GetDisplayText("Бу ном билан тўплам аллақачон мавжуд"));
+                    return;
+                }
                 await Dialog.DisplayToast(TransliterationService.GetDisplayText("Тўплам муваффақиятли яратилди"));
             }
             else
@@ -359,10 +364,7 @@
         {
             try
             {
-                // Get the actual Aya.Id from database
-                var ayaEntity = await db.GetAyaListAsync(aya.SuraId);
-                var targetAya = ayaEntity.FirstOrDefault(a => a.AyaId == aya.AyaId);
-                
+                var targetAya = await db.GetAyaAsync(aya.SuraId, aya.AyaId);
                 if (targetAya != null)
                 {
                     await db.RemoveAyaFromCollectionAsync(targetAya.Id, collectionId);

@@ -11,6 +11,7 @@ namespace QuranBlazor.Services
     {
         private readonly int _delayMilliseconds;
         private CancellationTokenSource _cts = new();
+        private bool _disposed;
 
         public DebounceTimer(int delayMilliseconds = 300)
         {
@@ -37,7 +38,7 @@ namespace QuranBlazor.Services
         /// <param name="action">The async action to execute after the delay</param>
         public void Debounce(Func<Task> action)
         {
-            if (action == null) return;
+            if (action == null || _disposed) return;
 
             var previousToken = Interlocked.Exchange(ref _cts, new CancellationTokenSource());
             previousToken.Cancel();
@@ -63,9 +64,12 @@ namespace QuranBlazor.Services
 
         public void Dispose()
         {
+            if (_disposed) return;
+            
             var current = Interlocked.Exchange(ref _cts, new CancellationTokenSource());
             current.Cancel();
             current.Dispose();
+            _disposed = true;
         }
     }
 }

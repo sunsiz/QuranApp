@@ -18,8 +18,7 @@
     {
         _debounceTimer = new DebounceTimer(300);
         TransliterationService.OnScriptChanged += HandleScriptChanged;
-        await LoadSurasAsync();
-        base.OnInitialized();
+        await LoadSurasAsync().ConfigureAwait(false);
     }
 
     private void HandleScriptChanged()
@@ -49,6 +48,11 @@
 
     private void FilterSura()
     {
+        if (AllSuras == null || _debounceTimer == null)
+        {
+            return;
+        }
+
         _debounceTimer.Debounce(() =>
         {
             InvokeAsync(() =>
@@ -59,12 +63,44 @@
                 }
                 else
                 {
-                    SuraList = AllSuras.Where(s => 
-                        s.Name.Contains(SuraFilter, StringComparison.OrdinalIgnoreCase) ||
-                        TransliterationService.ToLatin(s.Name).Contains(SuraFilter, StringComparison.OrdinalIgnoreCase) ||
-                        TransliterationService.ToCyrillic(s.Name).Contains(SuraFilter, StringComparison.OrdinalIgnoreCase) ||
-                        s.Id.ToString().Contains(SuraFilter) // Allow filtering by sura number
-                    );
+                    var filter = SuraFilter.Trim();
+                    var comparison = StringComparison.OrdinalIgnoreCase;
+                    var looksLatin = TransliterationService.IsPotentiallyLatin(filter);
+                    var filterLatin = looksLatin ? filter : TransliterationService.ToLatin(filter);
+                    var filterCyrillic = looksLatin ? TransliterationService.ToCyrillic(filter) : filter;
+
+                    SuraList = AllSuras.Where(s =>
+                    {
+                        if (s.Id.ToString().Contains(filter, comparison))
+                        {
+                            return true;
+                        }
+
+                        if (!string.IsNullOrEmpty(s.Name))
+                        {
+                            if (s.Name.Contains(filterCyrillic, comparison))
+                            {
+                                return true;
+                            }
+
+                            var latinName = TransliterationService.ToLatin(s.Name);
+                            if (!string.IsNullOrEmpty(latinName) && latinName.Contains(filterLatin, comparison))
+                            {
+                                return true;
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(s.Meaning) && s.Meaning.Contains(filter, comparison))
+                        {
+                            return true;
+                        }
+
+                        var revealedLatin = s.RevealedIn ? "Madina" : "Makka";
+                        var revealedCyrillic = s.RevealedIn ? "Мадина" : "Макка";
+
+                        return revealedLatin.Contains(filterLatin, comparison)
+                            || revealedCyrillic.Contains(filterCyrillic, comparison);
+                    });
                 }
                 StateHasChanged();
             });
@@ -84,15 +120,7 @@
             await JsRuntime.InvokeVoidAsync("restoreScrollPosition");
             Debug.WriteLine("rendering again and try to scroll back");
 
-            // Attach the saveScrollPosition function to all anchor tags
-            await JsRuntime.InvokeVoidAsync("eval", @"
-                document.querySelectorAll('a').forEach(anchor => {
-                    anchor.addEventListener('click', (e) => {
-                        saveScrollPosition();
-                        console.log('Anchor clicked, scroll position saved.');
-                    });
-                });
-            ");
+            await JsRuntime.InvokeVoidAsync("quranScrollInterop.registerScrollSaver");
         }
     }
 

@@ -37,6 +37,19 @@ namespace QuranBlazor.Data
         /// Color code for visual identification (e.g., "#FF5733")
         /// </summary>
         public string ColorCode { get; set; }
+
+        public BookmarkCollection Clone()
+        {
+            return new BookmarkCollection
+            {
+                Id = Id,
+                Name = Name,
+                Description = Description,
+                CreatedDate = CreatedDate,
+                DisplayOrder = DisplayOrder,
+                ColorCode = ColorCode
+            };
+        }
     }
 
     /// <summary>

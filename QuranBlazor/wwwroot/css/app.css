@@ -551,6 +551,18 @@ html, body {
     color: white;
 }
 
+/* Accordion tweaks for dark theme visibility */
+.dark-theme .accordion-button {
+    color: var(--text-color);
+    background-color: transparent;
+}
+
+.dark-theme .accordion-button::after,
+.dark-theme .accordion-button:not(.collapsed)::after {
+    filter: invert(1) brightness(1.4);
+    opacity: 0.9;
+}
+
 /* Table theming */
 .dark-theme table {
     color: var(--text-color);

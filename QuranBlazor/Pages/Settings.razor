@@ -50,6 +50,59 @@
         get => ThemeService.CurrentTheme;
         set => ThemeService.CurrentTheme = value;
     }
+
+    // Display preferences - using backing fields to ensure proper state management
+    private bool _showArabicText = true;
+    private bool _showTranslation = true;
+    private bool _showFootnotes = true;
+
+    private bool ShowArabicText
+    {
+        get => _showArabicText;
+        set
+        {
+            // Ensure at least one text type is visible
+            if (!value && !_showTranslation)
+            {
+                // Auto-enable Translation when disabling Arabic
+                _showTranslation = true;
+                Preferences.Set(PreferenceKeys.ShowTranslation, true);
+            }
+            _showArabicText = value;
+            Preferences.Set(PreferenceKeys.ShowArabicText, value);
+            StateHasChanged();
+        }
+    }
+
+    private bool ShowTranslation
+    {
+        get => _showTranslation;
+        set
+        {
+            // Ensure at least one text type is visible
+            if (!value && !_showArabicText)
+            {
+                // Auto-enable Arabic when disabling Translation
+                _showArabicText = true;
+                Preferences.Set(PreferenceKeys.ShowArabicText, true);
+            }
+            _showTranslation = value;
+            Preferences.Set(PreferenceKeys.ShowTranslation, value);
+            StateHasChanged();
+        }
+    }
+
+    private bool ShowFootnotes
+    {
+        get => _showFootnotes;
+        set
+        {
+            _showFootnotes = value;
+            Preferences.Set(PreferenceKeys.ShowFootnotes, value);
+            StateHasChanged();
+        }
+    }
+    
     // Helper for display text to avoid direct service call in markup if it gets complex
     private string GetDisplayText(string cyrillicText)
     {
@@ -169,6 +222,18 @@
     protected override void OnInitialized()
     {
         base.OnInitialized();
+        
+        // Load display preferences from storage
+        _showArabicText = Preferences.Get(PreferenceKeys.ShowArabicText, true);
+        _showTranslation = Preferences.Get(PreferenceKeys.ShowTranslation, true);
+        _showFootnotes = Preferences.Get(PreferenceKeys.ShowFootnotes, true);
+        
+        // Ensure at least one text type is visible on load
+        if (!_showArabicText && !_showTranslation)
+        {
+            _showArabicText = true;
+            Preferences.Set(PreferenceKeys.ShowArabicText, true);
+        }
         
         // Initialize update service
         // TODO: Replace with your actual update URL
@@ -371,34 +436,42 @@
                 <input type="range" class="form-range" min="6" max="24" step="1" id="commentRange" @bind-value="@CommentFontSize">
                 <label style="font-size: @(CommentFontSize)px;" class="form-label">@TransliterationService.GetDisplayText("«Раҳмон ва Раҳим» калималари «раҳмат» (رحمة) ўзагидан турланган сифатлардир.")</label>
             </div>
-            <div class="vstack border-3 p-2 m-2 my-3 rounded-pill bg-light bg-gradient shadow-sm">
-                <h5 class="card-title text-primary text-center mb-3">@TransliterationService.GetDisplayText("Маълумотларни бошқариш")</h5>
+            
+            <div class="vstack border-3 p-3 m-2 my-3 rounded-4 bg-light bg-gradient shadow-sm">
+                <h5 class="card-title text-primary text-center mb-3">@TransliterationService.GetDisplayText("Кўрсатиш созламалари")</h5>
                 
-                <button class="btn btn-primary rounded-pill w-100 py-3 mb-3" @onclick="ImportData" disabled="@isImporting">
-                    @if (isImporting)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    }
-                    else
-                    {
-                        <span class="icon-mask icon-import svg-icon-md me-2" aria-hidden="true" title="Import"></span>
-                    }
-                    @TransliterationService.GetDisplayText("Заҳирадан тиклаш")
-                </button>
-                <small class="text-muted text-center mb-3">@TransliterationService.GetDisplayText("Олдинги заҳира файлини юклаш")</small>
+                <div class="d-flex flex-column gap-3">
+                    <div class="form-check form-switch d-flex align-items-center">
+                        <input class="form-check-input me-3" type="checkbox" role="switch" id="showArabicSwitch" 
+                               style="width: 3em; height: 1.5em;"
+                               checked="@ShowArabicText" @onchange="@((e) => { ShowArabicText = (bool)e.Value; StateHasChanged(); })">
+                        <label class="form-check-label flex-grow-1" for="showArabicSwitch">
+                            @TransliterationService.GetDisplayText("Арабча матнни кўрсатиш")
+                        </label>
+                    </div>
+                    
+                    <div class="form-check form-switch d-flex align-items-center">
+                        <input class="form-check-input me-3" type="checkbox" role="switch" id="showTranslationSwitch" 
+                               style="width: 3em; height: 1.5em;"
+                               checked="@ShowTranslation" @onchange="@((e) => { ShowTranslation = (bool)e.Value; StateHasChanged(); })">
+                        <label class="form-check-label flex-grow-1" for="showTranslationSwitch">
+                            @TransliterationService.GetDisplayText("Таржимани кўрсатиш")
+                        </label>
+                    </div>
+                    
+                    <div class="form-check form-switch d-flex align-items-center">
+                        <input class="form-check-input me-3" type="checkbox" role="switch" id="showFootnotesSwitch" 
+                               style="width: 3em; height: 1.5em;"
+                               checked="@ShowFootnotes" @onchange="@((e) => { ShowFootnotes = (bool)e.Value; StateHasChanged(); })">
+                        <label class="form-check-label flex-grow-1" for="showFootnotesSwitch">
+                            @TransliterationService.GetDisplayText("Изоҳларни кўрсатиш")
+                        </label>
+                    </div>
+                </div>
                 
-                <button class="btn btn-primary rounded-pill w-100 py-3" @onclick="ExportData" disabled="@isExporting">
-                    @if (isExporting)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    }
-                    else
-                    {
-                        <span class="icon-mask icon-export svg-icon-md me-2" aria-hidden="true" title="Export"></span>
-                    }
-                    @TransliterationService.GetDisplayText("Қайдларни заҳиралаш")
-                </button>
-                <small class="text-muted text-center mt-2">@TransliterationService.GetDisplayText("Қайдларингизни файлга сақлаш")</small>
+                <small class="text-muted text-center mt-3 px-2">
+                    @TransliterationService.GetDisplayText("Камида арабча ёки таржима кўрсатилиши керак")
+                </small>
             </div>
             
             <div class="vstack border-3 p-2 m-2 my-3 rounded-pill bg-light bg-gradient shadow-sm">
@@ -447,6 +520,36 @@
                 <small class="text-muted text-center mt-2">
                     @TransliterationService.GetDisplayText("Жорий версия"): @currentVersion
                 </small>
+            </div>
+
+            <div class="vstack border-3 p-2 m-2 my-3 rounded-pill bg-light bg-gradient shadow-sm">
+                <h5 class="card-title text-primary text-center mb-3">@TransliterationService.GetDisplayText("Маълумотларни бошқариш")</h5>
+                
+                <button class="btn btn-primary rounded-pill w-100 py-3 mb-3" @onclick="ImportData" disabled="@isImporting">
+                    @if (isImporting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <span class="icon-mask icon-import svg-icon-md me-2" aria-hidden="true" title="Import"></span>
+                    }
+                    @TransliterationService.GetDisplayText("Заҳирадан тиклаш")
+                </button>
+                <small class="text-muted text-center mb-3">@TransliterationService.GetDisplayText("Олдинги заҳира файлини юклаш")</small>
+                
+                <button class="btn btn-primary rounded-pill w-100 py-3" @onclick="ExportData" disabled="@isExporting">
+                    @if (isExporting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <span class="icon-mask icon-export svg-icon-md me-2" aria-hidden="true" title="Export"></span>
+                    }
+                    @TransliterationService.GetDisplayText("Қайдларни заҳиралаш")
+                </button>
+                <small class="text-muted text-center mt-2">@TransliterationService.GetDisplayText("Қайдларингизни файлга сақлаш")</small>
             </div>
         </div>
     </div>

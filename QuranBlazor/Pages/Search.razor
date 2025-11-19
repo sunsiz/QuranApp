@@ -4,7 +4,6 @@
 @using System.Diagnostics
 @using Microsoft.Maui.ApplicationModel.DataTransfer
 @using QuranBlazor.Services
-@using Microsoft.AspNetCore.Components.Web.Virtualization
 @inject DbContext db
 @inject NavigationManager Navigation
 @inject DialogService Dialog
@@ -15,12 +14,15 @@
     [Parameter]
     [SupplyParameterFromQuery]
     public string KeyWord { get; set; }
+    
     private string _effectiveKeyword;
     private string _decodedKeyWordForDisplay;
+    private string _displayKeyword; // Cached display text
     private List<Aya> _ayaResults;
     private bool _isLoading = false;
     private List<string> searchHistory = new();
     private bool showHistory = false;
+    private Regex _highlightRegex;
 
     protected override void OnParametersSet()
     {
@@ -29,27 +31,25 @@
 
         if (!string.IsNullOrEmpty(_decodedKeyWordForDisplay))
         {
-            // Add to search history
             SearchHistoryService.AddSearch(_decodedKeyWordForDisplay);
             
             // For DB search, always convert to lowercase Cyrillic
-            // First, determine if the input is likely Latin to decide if ToCyrillic is needed
-            bool isInputLatin = TransliterationService.IsLatinScriptSelected || TransliterationService.IsPotentiallyLatin(_decodedKeyWordForDisplay); // Consider current script or guess
-            if (isInputLatin)
-            {
-                _effectiveKeyword = TransliterationService.ToCyrillic(_decodedKeyWordForDisplay);
-            }
-            else // Assumed Cyrillic input
-            {
-                _effectiveKeyword = _decodedKeyWordForDisplay;
-            }
+            bool isInputLatin = TransliterationService.IsLatinScriptSelected || TransliterationService.IsPotentiallyLatin(_decodedKeyWordForDisplay);
+            _effectiveKeyword = isInputLatin 
+                ? TransliterationService.ToCyrillic(_decodedKeyWordForDisplay)
+                : _decodedKeyWordForDisplay;
+            
+            // Cache display keyword to avoid repeated transliteration
+            _displayKeyword = TransliterationService.GetDisplayText(_decodedKeyWordForDisplay);
         }
         else
         {
             _effectiveKeyword = string.Empty;
+            _displayKeyword = string.Empty;
         }
-        _ayaResults = null; // Reset to trigger re-fetch
-        _highlightRegex = null; // Reset regex
+        
+        _ayaResults = null;
+        _highlightRegex = null;
     }
     
     protected override async Task OnInitializedAsync()
@@ -88,7 +88,7 @@
 
         return _ayaResults;
     }
-    private Regex _highlightRegex;
+    
     private string arabicStyle => $"font-size:{Preferences.Get("ArabicFontSize", 16)}px";
     private string textStyle => $"font-size:{Preferences.Get("TranslateFontSize", 14)}px";
     private string commentStyle => $"font-size:{Preferences.Get("CommentFontSize", 12)}px;margin-bottom:0px";
@@ -100,40 +100,42 @@
     private HashSet<int> ayaCollections = new();
     private string newCollectionName = string.Empty;
     private bool showCreateNewInDialog;
+    
+    private static readonly Regex CommentRegex = new(@"\(([^)]+)\)", RegexOptions.Compiled);
 
     private string HighlightKeyword(string input, bool isHtml = false)
     {
-        // Highlight against the original KeyWord (as typed by user),
-        // but on the potentially transliterated 'input' text.
-        // If input is HTML (from ProcessComment), do NOT transliterate again!
+        if (string.IsNullOrEmpty(input) || string.IsNullOrEmpty(_displayKeyword)) 
+            return isHtml ? input : TransliterationService.GetDisplayText(input);
+
         string textToHighlight = isHtml ? input : TransliterationService.GetDisplayText(input);
-        //string textToHighlight = TransliterationService.GetDisplayText(input);// Text in current display script
-        string keywordToMatchInDisplayScript = TransliterationService.GetDisplayText(_decodedKeyWordForDisplay); // User's keyword in current display script
-        //string userTypedKeyword = HttpUtility.UrlDecode(KeyWord); // The keyword as user typed it
 
-        if (string.IsNullOrEmpty(textToHighlight) || string.IsNullOrEmpty(keywordToMatchInDisplayScript)) return textToHighlight;
-        // Use userTypedKeyword for highlighting, as it's what they see and expect to be highlighted.
-        var escapedKeyword = Regex.Escape(keywordToMatchInDisplayScript);
-        // _highlightRegex should be based on userTypedKeyword
-
-        if (_highlightRegex == null || _highlightRegex.ToString() != escapedKeyword) // Recreate if keyword changed
+        if (_highlightRegex == null)
         {
-            _highlightRegex = new Regex(escapedKeyword, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var escapedKeyword = Regex.Escape(_displayKeyword);
+            _highlightRegex = new Regex(escapedKeyword, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
         }
+        
         return _highlightRegex.Replace(textToHighlight, m => $"<span class='search-term'>{m.Value}</span>");
     }
     private string ProcessComment(string comment)
     {
         if (string.IsNullOrEmpty(comment)) return string.Empty;
-        // Regular expression to match patterns like (Нисо 4/1, Аъроф 7/45, Юнус 10/3, Алақ 96/1) or (Юнус 12/50)
-        var regex = new Regex(@"\(([^)]+)\)", RegexOptions.Compiled);
+        
         bool toLatin = Preferences.Get("UzbekScript", "Cyrillic") == "Latin";
-        var resultHtml = new System.Text.StringBuilder();
+        var matches = CommentRegex.Matches(comment);
+        
+        if (matches.Count == 0)
+        {
+            return toLatin ? TransliterationService.ToLatin(comment) : comment;
+        }
+        
+        var resultHtml = new System.Text.StringBuilder(comment.Length + (matches.Count * 50));
         int lastIndex = 0;
 
         try
         {
-            foreach (Match match in regex.Matches(comment))
+            foreach (Match match in matches)
             {
                 // Append the text segment before this match, transliterated
                 string textBeforeMatch = comment.Substring(lastIndex, match.Index - lastIndex);
@@ -346,7 +348,7 @@
             var collectionId = await db.AddBookmarkCollectionAsync(newCollection).ConfigureAwait(false);
             if (collectionId <= 0)
             {
-                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Янги тўпламни сақлашда хатолик"));
+                await Dialog.DisplayToast(TransliterationService.GetDisplayText("Бу ном билан тўплам аллақачон мавжуд"));
                 return;
             }
 
@@ -488,13 +490,13 @@
         }
         else
         {
-            <div class="mx-1"><h3 class="p-3 shadow-lg w-100 bg-light bg-gradient rounded-pill text-center">@TransliterationService.GetDisplayText("Излаш натижалари:") "@TransliterationService.GetDisplayText(_decodedKeyWordForDisplay)" - @(_ayaResults?.Count ?? 0) @TransliterationService.GetDisplayText("та жойда топилди.")</h3></div>
+            <div class="mx-1"><h3 class="p-3 shadow-lg w-100 bg-light bg-gradient rounded-pill text-center">@TransliterationService.GetDisplayText("Излаш натижалари:") "@_displayKeyword" - @(_ayaResults?.Count ?? 0) @TransliterationService.GetDisplayText("та жойда топилди.")</h3></div>
         }
     }
     @if (_ayaResults != null && _ayaResults.Any())
     {
-        @* Use Virtualization for large result sets *@
-        <Virtualize Items="@_ayaResults" Context="aya" OverscanCount="3">
+        @foreach (var aya in _ayaResults)
+        {
             <div class="row my-3" id="@aya.AyaId">
                 <div class="col">
                     <div class="card bg-light bg-gradient">
@@ -532,10 +534,10 @@
                     </div>
                 </div>
             </div>
-        </Virtualize>
+        }
         <div id="BackToTop" class="Shown" @onclick="BackToTop"></div>
     }
-    else if (!string.IsNullOrEmpty(KeyWord))
+    else if (!string.IsNullOrEmpty(KeyWord) && !_isLoading)
     {
         <div class="text-center my-5 px-3">
             <img src="search.svg" class="svg-icon svg-icon-xxl mb-3 opacity-50 svg-icon-light" alt="" />

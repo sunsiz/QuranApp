@@ -33,6 +33,19 @@ A comprehensive Quran study tool, designed for the Uzbek language, leveraging th
 
 ## Update log
 
+### Version 2.1 (2025-11-19)
+* Add options to show or hide Arabic text, Translations, Comments.
+* Improved UI and some features.
+
+### Version 2.0 (2025-11-14)
+* Add light/dark mode.
+* Can auto update database.
+* Import/export settings.
+* İnstant language script and theme switching.
+* Favorites feature improved and replaced by collections feature.
+* Fixed some errors in content.
+* improved UI and some features.
+
 ### Version 1.2 (2025-06-180)
 * Fixed some errors in content.
 * Add Latin script support alongside Cyrillic Uzbek scripts.
@@ -87,7 +100,7 @@ A comprehensive Quran study tool, designed for the Uzbek language, leveraging th
 
 ## Potential Feature Ideas
 
-- **Database Update via Web API**: A potential feature could be the ability to update the database through the internet via a web API, allowing for real-time updates and additions to the Quranic text, translations, and comments.
+- ~~**Database Update via Web API**: A potential feature could be the ability to update the database through the internet via a web API, allowing for real-time updates and additions to the Quranic text, translations, and comments.~~
 
 ## Contributing
 

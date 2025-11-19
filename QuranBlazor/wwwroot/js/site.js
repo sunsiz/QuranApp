@@ -1,18 +1,4 @@
 ﻿function BlazorScrollToId(id) {
-    console.log("Scrolling element id is " + id);
-    const element = document.getElementById(id);
-    if (element instanceof HTMLElement) {
-        element.scrollIntoView({
-            behavior: "auto", // "smooth" can sometimes interfere with subsequent JS if not awaited, "auto" is safer
-            block: "start",
-            inline: "nearest" // "center" might not always be what's desired for top item
-        });
-    }
-}
-
-// Try to scroll to element, returns true if successful, false if element not found
-function tryScrollToId(id) {
-    console.log("Trying to scroll to element id: " + id);
     const element = document.getElementById(id);
     if (element instanceof HTMLElement) {
         element.scrollIntoView({
@@ -20,85 +6,113 @@ function tryScrollToId(id) {
             block: "start",
             inline: "nearest"
         });
-        console.log("Successfully scrolled to element: " + id);
+    }
+}
+
+// Try to scroll to element, returns true if successful, false if element not found
+function tryScrollToElement(id) {
+    const element = document.getElementById(id);
+    if (element instanceof HTMLElement) {
+        element.scrollIntoView({
+            behavior: "auto",
+            block: "start",
+            inline: "nearest"
+        });
         return true;
     }
-    console.log("Element not found: " + id);
     return false;
 }
 
-// When the user clicks the button, the page scrolls to the top
+// Scroll to top of page
 function BlazorScrollToTop() {
-    console.log("Scrolling element to top");
-    window.scrollTo({ top: 0, behavior: 'auto' }); // Use object for consistency, behavior auto
+    window.scrollTo({ top: 0, behavior: 'auto' });
 }
+
+// Save scroll position to sessionStorage
 function saveScrollPosition() {
-    // Only save if on a page that needs general scroll saving (e.g., not AyaList if it uses fragments)
-    // Or make this generic and let AyaList decide not to call it.
-    // For now, keeping it generic.
     const scrollPosition = window.scrollY || document.documentElement.scrollTop;
-    console.log("Scroll position that try to save is " + scrollPosition + " for page " + window.location.pathname);
-    sessionStorage.setItem('scrollPosition-' + window.location.pathname + window.location.search, scrollPosition); // Store per-URL
-    // console.log("Scroll position saved " + sessionStorage.getItem('scrollPosition-' + window.location.pathname + window.location.search));
-}
-
-function restoreScrollPosition() {
-    const key = 'scrollPosition-' + window.location.pathname + window.location.search;
-    const scrollPosition = sessionStorage.getItem(key);
-    console.log("Scroll position that try to restore is " + scrollPosition + " for page " + window.location.pathname);
-    if (scrollPosition) {
-        window.scrollTo(0, parseInt(scrollPosition, 10));
-        // sessionStorage.removeItem(key); // Consider removing only if it's a one-time restore per load.
-        // Keeping it allows restore on soft reloads/re-renders if Blazor doesn't re-trigger full load.
-        // For back/forward, browser might handle it. If Blazor re-renders, this helps.
-    }
-}
-
-
-function getTopVisibleAyaIdForAyaList() {
-    if (!window.location.pathname.endsWith('/ayalist')) {
-        return null;
-    }
-    const ayas = Array.from(document.querySelectorAll('.row.my-3[id]'));
-    if (!ayas.length) return null;
-
-    let bestCandidate = null;
-    // A small offset from the top of the viewport. If an Aya's top is within this, it's a good candidate.
-    const viewportTopThreshold = 20; // pixels. Consider Ayas whose top is at or just above/below viewport top.
-
-    for (const aya of ayas) {
-        const rect = aya.getBoundingClientRect();
-        // Check if the Aya is at all visible and its top is near the viewport top.
-        if (rect.bottom > 0 && rect.top < window.innerHeight) { // Element is at least partially visible
-            if (bestCandidate === null) { // First visible element
-                bestCandidate = aya;
-            }
-            // If this element is closer to the viewportTopThreshold (from above or below) than the current bestCandidate
-            if (Math.abs(rect.top) < Math.abs(bestCandidate.getBoundingClientRect().top)) {
-                bestCandidate = aya;
-            }
-            // If an element is fully visible and very close to the top, prefer it.
-            if (rect.top >= 0 && rect.top <= viewportTopThreshold) {
-                bestCandidate = aya;
-                break; // Found a good candidate starting in viewport near top
-            }
-        }
-    }
-    return bestCandidate ? bestCandidate.id : null;
-}
-
-function updateUrlWithTopVisibleAyaFragmentForAyaList() {
-    if (!window.location.pathname.endsWith('/ayalist')) {
+    console.log('=== SAVING SCROLL POSITION ===');
+    console.log('Current URL:', window.location.href);
+    console.log('Scroll position:', scrollPosition);
+    
+    // Don't save if we're at the very top - likely just navigated here
+    if (scrollPosition < 50) {
+        console.log('Scroll position too low (< 50px), skipping save to avoid overwriting');
         return;
     }
-    const topAyaId = getTopVisibleAyaIdForAyaList();
-    if (topAyaId) {
-        const currentUrl = new URL(window.location.href);
-        if (currentUrl.hash !== `#${topAyaId}`) {
-            currentUrl.hash = topAyaId;
-            history.replaceState(null, '', currentUrl.toString());
-            console.log('AyaList: Replaced URL with fragment: #' + topAyaId);
+    
+    // For AyaList pages, find the top visible Aya and save it
+    if (window.location.pathname.endsWith('/AyaList')) {
+        const topAyaId = getTopVisibleAyaId();
+        console.log('Top visible Aya ID:', topAyaId);
+        
+        if (topAyaId) {
+            // Save with the Aya ID we're currently viewing
+            const keyWithAya = window.location.pathname + window.location.search + '#' + topAyaId;
+            sessionStorage.setItem('scrollPosition-' + keyWithAya, scrollPosition);
+            console.log('Saved as:', keyWithAya, '→', scrollPosition);
+            return;
         }
+    }
+    
+    // Default: save by pathname + search
+    const key = 'scrollPosition-' + window.location.pathname + window.location.search;
+    sessionStorage.setItem(key, scrollPosition);
+    console.log('Saved (default) as:', key, '→', scrollPosition);
+}
+
+// Get the top visible Aya ID on AyaList page
+function getTopVisibleAyaId() {
+    if (!window.location.pathname.endsWith('/AyaList')) {
+        console.log('Not on AyaList page, path is:', window.location.pathname);
+        return null;
+    }
+    
+    const ayas = document.querySelectorAll('.row.my-3[id]');
+    console.log('Found', ayas.length, 'ayas on the page');
+    if (!ayas.length) return null;
+
+    // Find the Aya that's currently at the top of the viewport
+    for (const aya of ayas) {
+        const rect = aya.getBoundingClientRect();
+        // If this Aya is visible in viewport (top is within screen)
+        if (rect.top >= 0 && rect.top < window.innerHeight) {
+            console.log('Found top visible aya:', aya.id, 'at top:', rect.top);
+            return aya.id;
+        }
+        // Or if we scrolled past it but it's the closest one
+        if (rect.bottom > 0) {
+            console.log('Found aya in view:', aya.id, 'bottom:', rect.bottom);
+            return aya.id;
+        }
+    }
+    
+    console.log('Defaulting to first aya:', ayas[0]?.id);
+    return ayas[0]?.id || null;
+}
+
+// Restore scroll position from sessionStorage
+function restoreScrollPosition() {
+    console.log('=== RESTORING SCROLL POSITION ===');
+    console.log('Current URL:', window.location.href);
+    
+    // Try with current URL including fragment first
+    let key = 'scrollPosition-' + window.location.pathname + window.location.search + window.location.hash;
+    let scrollPosition = sessionStorage.getItem(key);
+    console.log('Trying key with hash:', key, '→', scrollPosition);
+    
+    // If not found, try without fragment
+    if (!scrollPosition) {
+        key = 'scrollPosition-' + window.location.pathname + window.location.search;
+        scrollPosition = sessionStorage.getItem(key);
+        console.log('Trying key without hash:', key, '→', scrollPosition);
+    }
+    
+    if (scrollPosition) {
+        console.log('Restoring to position:', scrollPosition);
+        window.scrollTo(0, parseInt(scrollPosition, 10));
+    } else {
+        console.log('No saved position found');
     }
 }
 
@@ -137,9 +151,92 @@ function enableKeyboardNavigation() {
     });
 }
 
+(function () {
+    if (window.quranScrollInterop) {
+        return;
+    }
+
+    function buildPredicate(options) {
+        if (!options) {
+            return () => true;
+        }
+
+        if (options.selector) {
+            const selector = options.selector;
+            return anchor => anchor.matches && anchor.matches(selector);
+        }
+
+        if (options.hrefContains) {
+            const fragment = options.hrefContains;
+            return anchor => !!anchor.href && anchor.href.includes(fragment);
+        }
+
+        if (options.hrefStartsWith) {
+            const prefix = options.hrefStartsWith;
+            return anchor => !!anchor.href && anchor.href.startsWith(prefix);
+        }
+
+        return () => true;
+    }
+
+    const scrollInterop = {
+        handler: null,
+        registerScrollSaver(options) {
+            this.unregisterScrollSaver();
+            const predicate = buildPredicate(options);
+            this.handler = function (event) {
+                const anchor = event.target?.closest?.('a');
+                if (!anchor || !predicate(anchor)) {
+                    return;
+                }
+                saveScrollPosition();
+            };
+            document.addEventListener('click', this.handler);
+        },
+        registerAyaListLinkSaver() {
+            this.registerScrollSaver({ hrefContains: '/AyaList' });
+        },
+        hasSavedPosition(url) {
+            if (!url) {
+                return false;
+            }
+
+            try {
+                return sessionStorage.getItem('scrollPosition-' + url) !== null;
+            } catch (error) {
+                console.error('Unable to access sessionStorage', error);
+                return false;
+            }
+        },
+        getSavedPosition(url) {
+            if (!url) {
+                return null;
+            }
+
+            try {
+                const value = sessionStorage.getItem('scrollPosition-' + url);
+                return value ? parseInt(value, 10) : null;
+            } catch (error) {
+                console.error('Unable to read sessionStorage', error);
+                return null;
+            }
+        },
+        unregisterScrollSaver() {
+            if (!this.handler) {
+                return;
+            }
+            document.removeEventListener('click', this.handler);
+            this.handler = null;
+        }
+    };
+
+    window.quranScrollInterop = scrollInterop;
+})();
+
 // Initialize keyboard navigation on load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', enableKeyboardNavigation);
 } else {
     enableKeyboardNavigation();
 }
+

@@ -8,8 +8,8 @@ namespace QuranBlazor.Data
     {
         private readonly string _dbPath;
         private SQLiteAsyncConnection _conn;
-        private readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
-        private bool _initialized = false;
+        private readonly SemaphoreSlim _initLock = new(1, 1);
+        private volatile bool _initialized = false;
 
         public DbContext(string dbPath)
         {
@@ -21,12 +21,14 @@ namespace QuranBlazor.Data
         {
             if (_initialized) return;
 
-            await _initLock.WaitAsync();
+            await _initLock.WaitAsync().ConfigureAwait(false);
             try
             {
-                if (_initialized) return;
-                await InitializeAsync();
-                _initialized = true;
+                if (!_initialized)
+                {
+                    await InitializeAsync().ConfigureAwait(false);
+                    _initialized = true;
+                }
             }
             finally
             {
@@ -74,14 +76,14 @@ namespace QuranBlazor.Data
             {
                 Stream sourceStream;
 #if WINDOWS
-        sourceStream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, filename));
+                sourceStream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, filename));
 #else
-                sourceStream = await Microsoft.Maui.Storage.FileSystem.Current.OpenAppPackageFileAsync(filename);
+                sourceStream = await Microsoft.Maui.Storage.FileSystem.Current.OpenAppPackageFileAsync(filename).ConfigureAwait(false);
 #endif
                 using (sourceStream)
                 {
                     using var targetStream = new FileStream(targetPath, FileMode.CreateNew, FileAccess.Write);
-                    sourceStream.CopyTo(targetStream);
+                    await sourceStream.CopyToAsync(targetStream).ConfigureAwait(false);
                     Debug.WriteLine("File copied successfully");
                 }
             }
@@ -93,109 +95,105 @@ namespace QuranBlazor.Data
 
         public async Task<List<Sura>> GetSuraListAsync()
         {
-            await EnsureInitializedAsync();
-            return await _conn.Table<Sura>().ToListAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            return await _conn.Table<Sura>().ToListAsync().ConfigureAwait(false);
         }
 
         public async Task<List<Aya>> GetAyaListAsync(int suraId)
         {
-            await EnsureInitializedAsync();
-            return await _conn.Table<Aya>().Where(a => a.SuraId == suraId).ToListAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            return await _conn.Table<Aya>().Where(a => a.SuraId == suraId).ToListAsync().ConfigureAwait(false);
+        }
+
+        public async Task<Aya> GetAyaAsync(int suraId, int ayaId)
+        {
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            return await _conn.Table<Aya>()
+                .FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaId)
+                .ConfigureAwait(false);
         }
 
         public async Task<int> UpdateAyaAsync(Aya aya)
         {
-            await EnsureInitializedAsync();
-            var result = await _conn.UpdateAsync(aya);
-            Debug.WriteLine(result);
+            if (aya == null) return -1;
+            
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            var result = await _conn.UpdateAsync(aya).ConfigureAwait(false);
+            Debug.WriteLine($"UpdateAya result: {result}");
             return result;
         }
 
         public async Task<Note> GetNoteAsync(int ayaId, int suraId)
         {
-            await EnsureInitializedAsync();
-            return await _conn.Table<Note>().FirstOrDefaultAsync(n => n.AyaId == ayaId && n.SuraId == suraId);
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            return await _conn.Table<Note>().FirstOrDefaultAsync(n => n.AyaId == ayaId && n.SuraId == suraId).ConfigureAwait(false);
         }
 
         public async Task<int> AddNoteAsync(int ayaId, int suraId, string suraName, string note)
         {
-            await EnsureInitializedAsync();
-            var newNote = new Note()
+            if (string.IsNullOrWhiteSpace(note)) return -1;
+            
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            var newNote = new Note
             {
                 AyaId = ayaId,
-                Content = note,
+                Content = note.Trim(),
                 SuraId = suraId,
-                Title = $"{suraId}. Сура {suraName}, {ayaId}. Оят"
+                Title = $"{suraId}. Сура {suraName ?? ""}, {ayaId}. Оят"
             };
-            var result = await _conn.InsertAsync(newNote);
-            var aya = await _conn.Table<Aya>().FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaId);
-            if (aya != null)
+            
+            var result = await _conn.InsertAsync(newNote).ConfigureAwait(false);
+            
+            if (result > 0)
             {
-                aya.HasNote = true;
-                await _conn.UpdateAsync(aya);
+                await _conn.ExecuteAsync(
+                    "UPDATE Aya SET HasNote = 1 WHERE SuraId = ? AND AyaId = ?",
+                    suraId, ayaId).ConfigureAwait(false);
             }
-            else
-            {
-                Debug.WriteLine($"Aya not found when adding note: SuraId={suraId}, AyaId={ayaId}");
-            }
-            Debug.WriteLine("Add note result is:" + result);
 
+            Debug.WriteLine("Add note result is:" + result);
             return result;
         }
 
         public async Task<int> DeleteNoteAsync(int ayaId, int suraId)
         {
-            await EnsureInitializedAsync();
-            var noteResult = await _conn.Table<Note>().DeleteAsync(n => n.SuraId == suraId && n.AyaId == ayaId);
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            var noteResult = await _conn.Table<Note>().DeleteAsync(n => n.SuraId == suraId && n.AyaId == ayaId).ConfigureAwait(false);
             Debug.WriteLine("Delete note result is:" + noteResult);
 
-            var aya = await _conn.Table<Aya>().FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaId);
-            if (aya != null)
+            if (noteResult > 0)
             {
-                aya.HasNote = false;
-                var result = await _conn.UpdateAsync(aya);
-                Debug.WriteLine("Delete has note from aya result is:" + result);
-                return result;
+                await _conn.ExecuteAsync(
+                    "UPDATE Aya SET HasNote = 0 WHERE SuraId = ? AND AyaId = ?",
+                    suraId, ayaId).ConfigureAwait(false);
             }
 
-            Debug.WriteLine($"Aya not found when deleting note: SuraId={suraId}, AyaId={ayaId}");
             return noteResult;
-        }
-
-        public async Task<int> UpdateNote(int ayaId, int suraId)
-        {
-            await EnsureInitializedAsync();
-            int result = -1;
-            var note = await _conn.Table<Note>().FirstOrDefaultAsync(n => n.SuraId == suraId && n.AyaId == ayaId);
-            if (note != null)
-            {
-                result = await _conn.UpdateAsync(note);
-                Debug.WriteLine(result);
-            }
-            return result;
         }
 
         public async Task<int> UpdateNoteAsync(Note note)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
             if (note == null) return -1;
-            var result = await _conn.UpdateAsync(note);
+            var result = await _conn.UpdateAsync(note).ConfigureAwait(false);
             Debug.WriteLine($"Update note result: {result}");
             return result;
         }
 
         public async Task<List<FavoritesViewModel>> GetFavoritesAsync()
         {
-            await EnsureInitializedAsync();
-            var favoriteAyas = await _conn.Table<Aya>().Where(a => a.IsFavorite).ToListAsync();
-            var suras = await _conn.Table<Sura>().ToListAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            var favoriteAyas = await _conn.Table<Aya>().Where(a => a.IsFavorite).ToListAsync().ConfigureAwait(false);
+            
+            // Ensure cache is populated
+            await EnsureSuraNameCacheAsync().ConfigureAwait(false);
 
             var favorites = favoriteAyas.Select(a => new FavoritesViewModel
             {
                 SuraId = a.SuraId,
                 AyaId = a.AyaId,
                 Text = a.Text,
-                SuraName = suras.FirstOrDefault(s => s.Id == a.SuraId)?.Name
+                SuraName = _suraNameCache.TryGetValue(a.SuraId, out var name) ? name : string.Empty
             }).ToList();
 
             return favorites;
@@ -203,25 +201,31 @@ namespace QuranBlazor.Data
 
         public async Task<int> DeleteFavoriteAsync(int ayaId, int suraId)
         {
-            await EnsureInitializedAsync();
-            var aya = await _conn.Table<Aya>().FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaId);
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            var aya = await _conn.Table<Aya>().FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaId).ConfigureAwait(false);
             aya.IsFavorite = false;
-            var result = await _conn.UpdateAsync(aya);
+            var result = await _conn.UpdateAsync(aya).ConfigureAwait(false);
             Debug.WriteLine("Delete favorite aya result is:" + result);
             return result;
         }
 
+        private Dictionary<int, string> _suraNameCache;
+        private List<BookmarkCollection> _bookmarkCollectionsCache;
+        private readonly SemaphoreSlim _bookmarkCacheLock = new(1, 1);
+        private readonly SemaphoreSlim _suraNameCacheLock = new(1, 1);
+
         public async Task<string> GetSuraNameAsync(int suraId)
         {
-            await EnsureInitializedAsync();
-            var sura = await _conn.Table<Sura>().FirstOrDefaultAsync(s => s.Id == suraId);
-            return sura?.Name ?? string.Empty;
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            await EnsureSuraNameCacheAsync().ConfigureAwait(false);
+            return _suraNameCache.TryGetValue(suraId, out var name) ? name : string.Empty;
         }
+
 
         public async Task<List<Note>> GetNotesAsync()
         {
-            await EnsureInitializedAsync();
-            return await _conn.Table<Note>().ToListAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            return await _conn.Table<Note>().ToListAsync().ConfigureAwait(false);
         }
 
         /// <summary>
@@ -232,39 +236,66 @@ namespace QuranBlazor.Data
         /// <returns>The list of Ayas that matches th condition</returns>
         public async Task<IEnumerable<Aya>> GetSearchResult(string keyWord)
         {
-            await EnsureInitializedAsync();
-            if (string.IsNullOrEmpty(keyWord)) return null;
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(keyWord)) return Array.Empty<Aya>();
+
             var ayas = new List<Aya>();
             using var connection = new SqliteConnection("Data Source=" + _dbPath);
-            // A custom SQLite function "ContainsKeyword" is created.
-            // This function checks if a field value contains the keyword, ignoring case.
+
             connection.CreateFunction(
                 "ContainsKeyword",
                 (string fieldValue, string keyword) => fieldValue != null && keyword != null && fieldValue.Contains(keyword, StringComparison.OrdinalIgnoreCase)
             );
+
+            await connection.OpenAsync().ConfigureAwait(false);
+
             using var command = connection.CreateCommand();
             command.CommandText = @"SELECT * FROM Aya WHERE ContainsKeyword(Text, $kw) or ContainsKeyword(Comment, $kw);";
             command.Parameters.AddWithValue("$kw", keyWord);
 
-            connection.Open();
-            using var oReader = command.ExecuteReader();
-            while (oReader.Read())
+            await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await reader.ReadAsync().ConfigureAwait(false))
             {
-                var aya = new Aya()
+                var aya = new Aya
                 {
-                    Id = oReader.GetInt32(0),
-                    SuraId = oReader.GetInt32(1),
-                    AyaId = oReader.GetInt32(2),
-                    Text = oReader.GetString(3),
-                    Arabic = oReader.GetString(4),
-                    Comment = oReader.IsDBNull(5) ? null : oReader.GetString(5),
-                    DetailComment = oReader.IsDBNull(6) ? null : oReader.GetString(6),
-                    IsFavorite = !oReader.IsDBNull(7) && oReader.GetBoolean(7),
-                    HasNote = !oReader.IsDBNull(8) && oReader.GetBoolean(8)
+                    Id = reader.GetInt32(0),
+                    SuraId = reader.GetInt32(1),
+                    AyaId = reader.GetInt32(2),
+                    Text = reader.GetString(3),
+                    Arabic = reader.GetString(4),
+                    Comment = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    DetailComment = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    IsFavorite = !reader.IsDBNull(7) && reader.GetBoolean(7),
+                    HasNote = !reader.IsDBNull(8) && reader.GetBoolean(8)
                 };
                 ayas.Add(aya);
             }
+
             return ayas;
+        }
+
+        private async Task EnsureSuraNameCacheAsync()
+        {
+            if (_suraNameCache != null) return;
+            
+            await _suraNameCacheLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (_suraNameCache == null)
+                {
+                    var suras = await _conn.Table<Sura>().ToListAsync().ConfigureAwait(false);
+                    _suraNameCache = suras.ToDictionary(s => s.Id, s => s.Name);
+                }
+            }
+            finally
+            {
+                _suraNameCacheLock.Release();
+            }
+        }
+
+        private void InvalidateBookmarkCollectionsCache()
+        {
+            _bookmarkCollectionsCache = null;
         }
 
         #region Bookmark Collections
@@ -272,10 +303,28 @@ namespace QuranBlazor.Data
         /// <summary>
         /// Get all bookmark collections
         /// </summary>
-        public async Task<List<BookmarkCollection>> GetBookmarkCollectionsAsync()
+        public async Task<List<BookmarkCollection>> GetBookmarkCollectionsAsync(bool forceRefresh = false)
         {
-            await EnsureInitializedAsync();
-            return await _conn.Table<BookmarkCollection>().OrderBy(c => c.DisplayOrder).ToListAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            await _bookmarkCacheLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (forceRefresh || _bookmarkCollectionsCache == null)
+                {
+                    _bookmarkCollectionsCache = await _conn.Table<BookmarkCollection>()
+                        .OrderBy(c => c.DisplayOrder)
+                        .ToListAsync()
+                        .ConfigureAwait(false);
+                }
+
+                return _bookmarkCollectionsCache
+                    .Select(collection => collection.Clone())
+                    .ToList();
+            }
+            finally
+            {
+                _bookmarkCacheLock.Release();
+            }
         }
 
         /// <summary>
@@ -283,8 +332,11 @@ namespace QuranBlazor.Data
         /// </summary>
         public async Task<BookmarkCollection> GetBookmarkCollectionAsync(int collectionId)
         {
-            await EnsureInitializedAsync();
-            return await _conn.Table<BookmarkCollection>().FirstOrDefaultAsync(c => c.Id == collectionId);
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            var collection = await _conn.Table<BookmarkCollection>()
+                .FirstOrDefaultAsync(c => c.Id == collectionId)
+                .ConfigureAwait(false);
+            return collection?.Clone();
         }
 
         /// <summary>
@@ -292,20 +344,35 @@ namespace QuranBlazor.Data
         /// </summary>
         public async Task<int> AddBookmarkCollectionAsync(BookmarkCollection collection)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
             if (collection == null) return -1;
+            collection.Name = collection.Name?.Trim();
+            collection.Description = collection.Description?.Trim();
+            if (string.IsNullOrWhiteSpace(collection.Name)) return -1;
+            
+            var existing = await _conn.Table<BookmarkCollection>()
+                .Where(c => c.Name == collection.Name)
+                .FirstOrDefaultAsync()
+                .ConfigureAwait(false);
+            
+            if (existing != null)
+            {
+                Debug.WriteLine($"Collection with name '{collection.Name}' already exists");
+                return -1; // Or return existing.Id if you want to reuse
+            }
             
             collection.CreatedDate = DateTime.Now;
             
             // Set display order to max + 1 if not specified
             if (collection.DisplayOrder == 0)
             {
-                var maxOrder = await _conn.Table<BookmarkCollection>().CountAsync();
+                var maxOrder = await _conn.ExecuteScalarAsync<int>("SELECT IFNULL(MAX(DisplayOrder),0) FROM BookmarkCollection").ConfigureAwait(false);
                 collection.DisplayOrder = maxOrder + 1;
             }
             
-            var result = await _conn.InsertAsync(collection);
+            var result = await _conn.InsertAsync(collection).ConfigureAwait(false);
             Debug.WriteLine($"Add bookmark collection result: {result}");
+            InvalidateBookmarkCollectionsCache();
             return collection.Id;
         }
 
@@ -314,10 +381,11 @@ namespace QuranBlazor.Data
         /// </summary>
         public async Task<int> UpdateBookmarkCollectionAsync(BookmarkCollection collection)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
             if (collection == null) return -1;
-            var result = await _conn.UpdateAsync(collection);
+            var result = await _conn.UpdateAsync(collection).ConfigureAwait(false);
             Debug.WriteLine($"Update bookmark collection result: {result}");
+            InvalidateBookmarkCollectionsCache();
             return result;
         }
 
@@ -326,13 +394,43 @@ namespace QuranBlazor.Data
         /// </summary>
         public async Task<int> DeleteBookmarkCollectionAsync(int collectionId)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
             // Delete all associations first
-            await _conn.Table<AyaBookmarkCollection>().DeleteAsync(abc => abc.CollectionId == collectionId);
+            await _conn.Table<AyaBookmarkCollection>().DeleteAsync(abc => abc.CollectionId == collectionId).ConfigureAwait(false);
             
-            var result = await _conn.Table<BookmarkCollection>().DeleteAsync(c => c.Id == collectionId);
+            var result = await _conn.Table<BookmarkCollection>().DeleteAsync(c => c.Id == collectionId).ConfigureAwait(false);
             Debug.WriteLine($"Delete bookmark collection result: {result}");
+            InvalidateBookmarkCollectionsCache();
             return result;
+        }
+
+        /// <summary>
+        /// Remove duplicate collections (keep the oldest one for each name)
+        /// </summary>
+        public async Task<int> RemoveDuplicateCollectionsAsync()
+        {
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            
+            var allCollections = await _conn.Table<BookmarkCollection>().ToListAsync().ConfigureAwait(false);
+            var duplicates = allCollections
+                .GroupBy(c => c.Name.ToLower())
+                .Where(g => g.Count() > 1)
+                .SelectMany(g => g.OrderBy(c => c.CreatedDate).Skip(1)) // Keep first (oldest), remove rest
+                .ToList();
+            
+            int deletedCount = 0;
+            foreach (var duplicate in duplicates)
+            {
+                await DeleteBookmarkCollectionAsync(duplicate.Id);
+                deletedCount++;
+            }
+            
+            Debug.WriteLine($"Removed {deletedCount} duplicate collections");
+            if (deletedCount > 0)
+            {
+                InvalidateBookmarkCollectionsCache();
+            }
+            return deletedCount;
         }
 
         /// <summary>
@@ -340,10 +438,11 @@ namespace QuranBlazor.Data
         /// </summary>
         public async Task<int> AddAyaToCollectionAsync(int ayaId, int collectionId, string notes = null)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
             // Check if already exists
             var existing = await _conn.Table<AyaBookmarkCollection>()
-                .FirstOrDefaultAsync(abc => abc.AyaId == ayaId && abc.CollectionId == collectionId);
+                .FirstOrDefaultAsync(abc => abc.AyaId == ayaId && abc.CollectionId == collectionId)
+                .ConfigureAwait(false);
             
             if (existing != null)
             {
@@ -359,7 +458,7 @@ namespace QuranBlazor.Data
                 Notes = notes
             };
 
-            var result = await _conn.InsertAsync(newAssociation);
+            var result = await _conn.InsertAsync(newAssociation).ConfigureAwait(false);
             Debug.WriteLine($"Add Aya to collection result: {result}");
             return result;
         }
@@ -369,9 +468,10 @@ namespace QuranBlazor.Data
         /// </summary>
         public async Task<int> RemoveAyaFromCollectionAsync(int ayaId, int collectionId)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
             var result = await _conn.Table<AyaBookmarkCollection>()
-                .DeleteAsync(abc => abc.AyaId == ayaId && abc.CollectionId == collectionId);
+                .DeleteAsync(abc => abc.AyaId == ayaId && abc.CollectionId == collectionId)
+                .ConfigureAwait(false);
             Debug.WriteLine($"Remove Aya from collection result: {result}");
             return result;
         }
@@ -381,24 +481,32 @@ namespace QuranBlazor.Data
         /// </summary>
         public async Task<List<FavoritesViewModel>> GetAyasInCollectionAsync(int collectionId)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            await EnsureSuraNameCacheAsync().ConfigureAwait(false);
             var associations = await _conn.Table<AyaBookmarkCollection>()
                 .Where(abc => abc.CollectionId == collectionId)
-                .ToListAsync();
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            if (!associations.Any())
+            {
+                return new List<FavoritesViewModel>();
+            }
 
             var ayaIds = associations.Select(a => a.AyaId).ToList();
-            var ayas = await _conn.Table<Aya>().Where(a => ayaIds.Contains(a.Id)).ToListAsync();
-            var suras = await _conn.Table<Sura>().ToListAsync();
+            var ayas = await _conn.Table<Aya>()
+                .Where(a => ayaIds.Contains(a.Id))
+                .ToListAsync()
+                .ConfigureAwait(false);
 
             var result = ayas.Select(a =>
             {
-                var sura = suras.FirstOrDefault(s => s.Id == a.SuraId);
                 return new FavoritesViewModel
                 {
                     SuraId = a.SuraId,
                     AyaId = a.AyaId,
                     Text = a.Text,
-                    SuraName = sura?.Name
+                    SuraName = _suraNameCache.TryGetValue(a.SuraId, out var name) ? name : string.Empty
                 };
             }).ToList();
 
@@ -410,21 +518,27 @@ namespace QuranBlazor.Data
         /// </summary>
         public async Task<List<BookmarkCollection>> GetCollectionsForAyaAsync(int suraId, int ayaId)
         {
-            await EnsureInitializedAsync();
-            var aya = await _conn.Table<Aya>().FirstOrDefaultAsync(a => a.SuraId == suraId && a.AyaId == ayaId);
+            await EnsureInitializedAsync().ConfigureAwait(false);
+            var aya = await GetAyaAsync(suraId, ayaId).ConfigureAwait(false);
             if (aya == null) return new List<BookmarkCollection>();
 
             var associations = await _conn.Table<AyaBookmarkCollection>()
                 .Where(abc => abc.AyaId == aya.Id)
-                .ToListAsync();
+                .ToListAsync()
+                .ConfigureAwait(false);
 
-            var collectionIds = associations.Select(a => a.CollectionId).ToList();
-            var collections = await _conn.Table<BookmarkCollection>()
-                .Where(c => collectionIds.Contains(c.Id))
+            if (!associations.Any())
+            {
+                return new List<BookmarkCollection>();
+            }
+
+            var lookup = associations.Select(a => a.CollectionId).ToHashSet();
+            var allCollections = await GetBookmarkCollectionsAsync().ConfigureAwait(false);
+
+            return allCollections
+                .Where(c => lookup.Contains(c.Id))
                 .OrderBy(c => c.DisplayOrder)
-                .ToListAsync();
-
-            return collections;
+                .ToList();
         }
 
         /// <summary>
@@ -432,10 +546,11 @@ namespace QuranBlazor.Data
         /// </summary>
         public async Task<int> GetCollectionAyaCountAsync(int collectionId)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
             return await _conn.Table<AyaBookmarkCollection>()
                 .Where(abc => abc.CollectionId == collectionId)
-                .CountAsync();
+                .CountAsync()
+                .ConfigureAwait(false);
         }
 
         #endregion
@@ -465,19 +580,16 @@ namespace QuranBlazor.Data
         /// </summary>
         public async Task<int> CreateDefaultFavoritesCollectionAsync()
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync().ConfigureAwait(false);
             
             // Check if favorites collection already exists (by name)
             var existing = await _conn.Table<BookmarkCollection>()
-                .FirstOrDefaultAsync(c => c.Name == "❤️ Белгиланган оятлар" || c.Name == "❤️ Belgilangan oyatlar");
+                .FirstOrDefaultAsync(c => c.Name == "❤️ Белгиланган оятлар" || c.Name == "❤️ Belgilangan oyatlar")
+                .ConfigureAwait(false);
             
             if (existing != null)
             {
                 Debug.WriteLine($"Favorites collection already exists with ID: {existing.Id}");
-                
-                // Create sample collections if this is first run
-                await CreateSampleCollectionsAsync();
-                
                 return existing.Id;
             }
 
@@ -490,28 +602,22 @@ namespace QuranBlazor.Data
                 ColorCode = "#DC143C" // Crimson red for favorites
             };
 
-            var result = await _conn.InsertAsync(favoritesCollection);
+            var result = await _conn.InsertAsync(favoritesCollection).ConfigureAwait(false);
             Debug.WriteLine($"Created default favorites collection with ID: {favoritesCollection.Id}");
+            InvalidateBookmarkCollectionsCache();
             
             // Create sample collections for new users
-            await CreateSampleCollectionsAsync();
+            await CreateSampleCollectionsAsync().ConfigureAwait(false);
             
             return favoritesCollection.Id;
         }
 
         /// <summary>
         /// Create sample bookmark collections to help new users understand the feature.
-        /// Only creates them once - respects user's choice if they delete them.
+        /// Only creates them once - checks database directly to prevent duplicates.
         /// </summary>
         private async Task CreateSampleCollectionsAsync()
         {
-            // Check if sample collections have already been created (even if user deleted them)
-            if (Preferences.Get("SampleCollectionsCreated", false))
-            {
-                Debug.WriteLine("Sample collections were already created previously, skipping");
-                return;
-            }
-
             var sampleCollections = new[]
             {
                 new BookmarkCollection
@@ -540,12 +646,32 @@ namespace QuranBlazor.Data
                 }
             };
 
-            await _conn.InsertAllAsync(sampleCollections);
+            int createdCount = 0;
+            foreach (var collection in sampleCollections)
+            {
+                // Check if collection with this name already exists
+                var existing = await _conn.Table<BookmarkCollection>()
+                    .Where(c => c.Name.ToLower() == collection.Name.ToLower())
+                    .FirstOrDefaultAsync()
+                    .ConfigureAwait(false);
+                
+                if (existing == null)
+                {
+                    await _conn.InsertAsync(collection).ConfigureAwait(false);
+                    createdCount++;
+                    Debug.WriteLine($"Created sample collection: {collection.Name}");
+                }
+                else
+                {
+                    Debug.WriteLine($"Sample collection already exists: {collection.Name}");
+                }
+            }
             
-            // Mark as created so we don't recreate them if user deletes them
-            Preferences.Set("SampleCollectionsCreated", true);
-            
-            Debug.WriteLine($"Created {sampleCollections.Length} sample collections");
+            Debug.WriteLine($"Created {createdCount} new sample collections (skipped {sampleCollections.Length - createdCount} existing)");
+            if (createdCount > 0)
+            {
+                InvalidateBookmarkCollectionsCache();
+            }
         }
 
         /// <summary>

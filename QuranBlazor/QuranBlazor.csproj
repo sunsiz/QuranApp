@@ -16,7 +16,7 @@
     <ApplicationId>org.suleymaniyevakfi.quranblazor</ApplicationId>
     <ApplicationIdGuid>C287D0AE-2445-47A6-ABDA-17EB772275D4</ApplicationIdGuid>
     <!-- Versions -->
-    <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
@@ -33,6 +33,10 @@
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <PublishAot>False</PublishAot>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net9.0-android|AnyCPU'">
     <AndroidUseAapt2>True</AndroidUseAapt2>
     <AndroidCreatePackagePerAbi>False</AndroidCreatePackagePerAbi>
@@ -41,31 +45,34 @@
     <ApplicationVersion>1</ApplicationVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net9.0-maccatalyst|AnyCPU'">
-    <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net9.0-android|AnyCPU'">
-    <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net9.0-ios|AnyCPU'">
-    <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net9.0-windows10.0.26100.0|AnyCPU'">
-    <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net9.0-maccatalyst|AnyCPU'">
-    <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net9.0-android|AnyCPU'">
-    <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
     <AndroidPackageFormat>aab</AndroidPackageFormat>
     <AndroidUseAapt2>True</AndroidUseAapt2>
     <AndroidCreatePackagePerAbi>False</AndroidCreatePackagePerAbi>
+    <RunAOTCompilation>true</RunAOTCompilation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net9.0-ios|AnyCPU'">
-    <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net9.0-windows10.0.26100.0|AnyCPU'">
-    <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
   </PropertyGroup>
   <ItemGroup>
     <!-- App Icon -->
