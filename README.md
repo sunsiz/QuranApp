@@ -33,8 +33,9 @@ A comprehensive Quran study tool, designed for the Uzbek language, leveraging th
 
 ## Update log
 
-### Version 2.1 (2025-11-19)
+### Version 2.1 (2025-11-20)
 * Add options to show or hide Arabic text, Translations, Comments.
+* Fixed virtualization caused sudden jumps while scrolling in AyaList.
 * Improved UI and some features.
 
 ### Version 2.0 (2025-11-14)
