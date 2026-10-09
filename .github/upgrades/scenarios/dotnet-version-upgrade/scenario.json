@@ -3,11 +3,12 @@
   "operationId": "d8d3bcf9-0bc6-4d44-8119-d836b090697e",
   "description": "Upgrade .NET projects to newer .NET versions, including guidance on current release status, support lifecycle (LTS/STS), and recommended upgrade targets.",
   "startTime": "2026-10-09T11:41:28.0314253Z",
-  "lastUpdateTime": "2026-10-09T11:47:32.7498938Z",
+  "lastUpdateTime": "2026-10-09T11:52:12.1972279Z",
   "properties": {
     "UpgradeTargetFramework": "net10.0",
     "taskStates": {
-      "01-prepare-upgrade-prerequisites": "Completed"
+      "01-prepare-upgrade-prerequisites": "Completed",
+      "02-upgrade-quranblazor-project": "Completed"
     }
   },
   "folderPath": ""
