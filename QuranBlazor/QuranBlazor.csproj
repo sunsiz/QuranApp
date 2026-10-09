@@ -13,7 +13,7 @@
     <!-- Display name -->
     <ApplicationTitle>Қурон</ApplicationTitle>
     <!-- App Identifier -->
-    <ApplicationId>org.suleymaniyevakfi.quranblazor</ApplicationId>
+    <ApplicationId>org.suleymaniyevakfi.quron</ApplicationId>
     <ApplicationIdGuid>C287D0AE-2445-47A6-ABDA-17EB772275D4</ApplicationIdGuid>
     <!-- Versions -->
     <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
@@ -52,6 +52,23 @@
     <AndroidPackageFormat>aab</AndroidPackageFormat>
     <!-- Generate native debug symbols -->
     <AndroidCreatePackagePerAbi>False</AndroidCreatePackagePerAbi>
+  </PropertyGroup>
+
+  <!-- iOS Release Configuration - App Store Distribution -->
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net9.0-ios|AnyCPU'">
+    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
+    <CodesignKey>Apple Distribution: Suleymaniye Vakfi (7RT7GPLQWB)</CodesignKey>
+    <CodesignProvision>97a76ec9-7e52-4ad1-8e25-b431e836d540</CodesignProvision>
+    <ArchiveOnBuild>true</ArchiveOnBuild>
+    <TcpPort>58181</TcpPort>
+  </PropertyGroup>
+
+  <!-- MacCatalyst Release Configuration - App Store Distribution -->
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net9.0-maccatalyst|AnyCPU'">
+    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
+    <CodesignKey>Apple Distribution</CodesignKey>
+    <CodesignProvision>Automatic:AppStore</CodesignProvision>
+    <ArchiveOnBuild>true</ArchiveOnBuild>
   </PropertyGroup>
   
   <ItemGroup>
