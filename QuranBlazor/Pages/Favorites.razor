@@ -12,11 +12,7 @@
 
 @if (isLoading)
 {
-    <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">@TransliterationService.GetDisplayText("Юкланмоқда...")</span>
-        </div>
-    </div>
+    <LoadingState Label="Белгиланган оятлар юкланмоқда..." />
 }
 else if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -24,12 +20,12 @@ else if (!string.IsNullOrEmpty(errorMessage))
 }
 else if (Ayas == null || !Ayas.Any())
 {
-    <div class="text-center my-5 px-3">
-        <img src="favorite_fill.svg" class="svg-icon svg-icon-xxl mb-3 opacity-50 svg-icon-light" alt="" />
-        <h4 class="text-muted">@TransliterationService.GetDisplayText("Сизда ҳали белгиланган оятлар йўқ")</h4>
-        <p class="text-muted">@TransliterationService.GetDisplayText("Оятларни белгилаш учун қалб белгисига босинг")</p>
-        <a href="/suras" class="btn btn-primary rounded-pill mt-3">@TransliterationService.GetDisplayText("Суралар саҳифасига ўтинг")</a>
-    </div>
+    <EmptyState 
+        IconSrc="favorite_fill.svg"
+        Title="@TransliterationService.GetDisplayText("Сизда ҳали белгиланган оятлар йўқ")"
+        Message="@TransliterationService.GetDisplayText("Оятларни белгилаш учун қалб белгисига босинг")"
+        ActionText="@TransliterationService.GetDisplayText("Суралар саҳифасига ўтинг")"
+        ActionHref="/suras" />
 }
 else
 {

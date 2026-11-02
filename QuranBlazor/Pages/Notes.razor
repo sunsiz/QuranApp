@@ -14,11 +14,7 @@
 
 @if (isLoading)
 {
-    <div class="d-flex justify-content-center my-5">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">@TransliterationService.GetDisplayText("Юкланмоқда...")</span>
-        </div>
-    </div>
+    <LoadingState Label="Қайдлар юкланмоқда..." />
 }
 else if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -26,12 +22,12 @@ else if (!string.IsNullOrEmpty(errorMessage))
 }
 else if (notes == null || !notes.Any())
 {
-    <div class="text-center my-5 px-3">
-        <img src="edit_note.svg" class="svg-icon svg-icon-xxl mb-3 opacity-50 svg-icon-light" alt="" />
-        <h4 class="text-muted">@TransliterationService.GetDisplayText("Сизда ҳали қайдлар йўқ")</h4>
-        <p class="text-muted">@TransliterationService.GetDisplayText("Оятларга қайд қўшиш учун қайд белгисига босинг")</p>
-        <a href="/suras" class="btn btn-primary rounded-pill mt-3">@TransliterationService.GetDisplayText("Суралар саҳифасига ўтинг")</a>
-    </div>
+    <EmptyState 
+        IconSrc="edit_note.svg"
+        Title="@TransliterationService.GetDisplayText("Сизда ҳали қайдлар йўқ")"
+        Message="@TransliterationService.GetDisplayText("Оятларга қайд қўшиш учун қайд белгисига босинг")"
+        ActionText="@TransliterationService.GetDisplayText("Суралар саҳифасига ўтинг")"
+        ActionHref="/suras" />
 }
 else
 {

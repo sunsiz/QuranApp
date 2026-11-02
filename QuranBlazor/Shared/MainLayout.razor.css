@@ -2,13 +2,15 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    background-color: var(--background-color, #ffffff);
+    background-color: var(--background-color);
+    color: var(--text-color);
     min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 main {
     flex: 1;
-    background-color: var(--background-color, #ffffff);
+    background-color: var(--background-color);
 }
 
 .sidebar {
@@ -30,16 +32,40 @@ main {
         white-space: nowrap;
         margin-left: 1.5rem;
         text-decoration: none;
+        padding: 0.5rem;
+        border-radius: 4px;
+        transition: background-color 0.2s ease, outline 0.2s ease;
     }
 
     .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
         text-decoration: underline;
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .top-row ::deep a:focus, .top-row ::deep .btn-link:focus {
+        outline: 2px solid #6200EE;
+        outline-offset: 2px;
     }
 
     .top-row ::deep a:first-child {
         overflow: hidden;
         text-overflow: ellipsis;
     }
+
+/* Keyboard focus styles for accessibility */
+:focus-visible {
+    outline: 2px solid #6200EE;
+    outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid #6200EE;
+    outline-offset: 2px;
+}
 
 @media (max-width: 640.98px) {
     .top-row:not(.auth) {

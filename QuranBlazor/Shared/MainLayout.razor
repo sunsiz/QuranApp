@@ -20,13 +20,13 @@
     }
 }
 
-<div class="page @ThemeService.ThemeClass">
+<div class="page @(ThemeService.IsDarkMode ? "dark-theme" : "light-theme")">
     <div class="sidebar">
         <NavMenu />
     </div>
 
     <main>
-        <article class="content px-2" id="maincontent">
+        <article class="content px-2" id="maincontent" role="main">
             @Body
         </article>
     </main>

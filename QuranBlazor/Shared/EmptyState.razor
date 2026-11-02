@@ -1,0 +1,82 @@
+@namespace QuranBlazor.Shared
+@using QuranBlazor.Services
+
+@if (!string.IsNullOrEmpty(IconSrc))
+{
+    <div class="text-center my-5 px-3 empty-state-container">
+        <img src="@IconSrc" 
+             class="svg-icon svg-icon-xxl mb-3 opacity-50 empty-state-icon" 
+             alt="" 
+             aria-hidden="true" />
+        
+        @if (!string.IsNullOrEmpty(Title))
+        {
+            <h4 class="text-muted empty-state-title">
+                @TransliterationService.GetDisplayText(Title)
+            </h4>
+        }
+        
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <p class="text-muted empty-state-message">
+                @TransliterationService.GetDisplayText(Message)
+            </p>
+        }
+        
+        @if (ActionText != null && ActionHref != null)
+        {
+            <a href="@ActionHref" 
+               class="btn btn-primary rounded-pill mt-3 empty-state-action"
+               aria-label="@TransliterationService.GetDisplayText(ActionText)">
+                @TransliterationService.GetDisplayText(ActionText)
+            </a>
+        }
+        else if (ActionCallback.HasDelegate && !string.IsNullOrEmpty(ActionText))
+        {
+            <button type="button"
+                    class="btn btn-primary rounded-pill mt-3 empty-state-action"
+                    @onclick="ActionCallback"
+                    aria-label="@TransliterationService.GetDisplayText(ActionText)">
+                @TransliterationService.GetDisplayText(ActionText)
+            </button>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// Icon source path (e.g., "favorite_fill.svg")
+    /// </summary>
+    [Parameter]
+    public string IconSrc { get; set; }
+
+    /// <summary>
+    /// Main title text (will be transliterated)
+    /// </summary>
+    [Parameter]
+    public string Title { get; set; }
+
+    /// <summary>
+    /// Description text (will be transliterated)
+    /// </summary>
+    [Parameter]
+    public string Message { get; set; }
+
+    /// <summary>
+    /// Action button text (will be transliterated)
+    /// </summary>
+    [Parameter]
+    public string ActionText { get; set; }
+
+    /// <summary>
+    /// Navigation href for action button
+    /// </summary>
+    [Parameter]
+    public string ActionHref { get; set; }
+
+    /// <summary>
+    /// Callback for action button (alternative to ActionHref)
+    /// </summary>
+    [Parameter]
+    public EventCallback ActionCallback { get; set; }
+}

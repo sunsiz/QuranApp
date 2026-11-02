@@ -38,6 +38,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|AnyCPU'">
     <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
+    <AndroidKeyStore>False</AndroidKeyStore>
+    <AndroidSigningStorePass>OzbekceCeviri</AndroidSigningStorePass>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-ios|AnyCPU'">
     <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
@@ -52,6 +54,8 @@
     <AndroidPackageFormat>aab</AndroidPackageFormat>
     <!-- Generate native debug symbols -->
     <AndroidCreatePackagePerAbi>False</AndroidCreatePackagePerAbi>
+    <AndroidKeyStore>False</AndroidKeyStore>
+    <AndroidSigningStorePass>OzbekceCeviri</AndroidSigningStorePass>
   </PropertyGroup>
 
   <!-- iOS Release Configuration - App Store Distribution -->
@@ -85,16 +89,16 @@
     <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Maui" Version="12.3.0" />
-    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="10.0.12" />
-    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.12" />
+    <PackageReference Include="CommunityToolkit.Maui" Version="15.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="10.0.14" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.14" />
     <PackageReference Include="sqlite-net-pcl" Version="1.11.285" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <PackageReference Include="SQLitePCLRaw.provider.dynamic_cdecl" Version="3.0.5" />
-    <PackageReference Include="Microsoft.Maui.Controls" Version="9.0.120" />
-    <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="9.0.120" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.12" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="9.0.120" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.120" />
+    <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="10.0.120" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.14" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.120" />
   </ItemGroup>
   <ItemGroup>
     <_ContentIncludedByDefault Remove="Pages\Search.razor" />
@@ -102,5 +106,13 @@
   <ItemGroup>
     <Folder Include="Services\" />
     <Folder Include="Resources\Images\" />
+  </ItemGroup>
+  <!-- MauiDevFlow agent: only when building with -p:MauiDevFlowEnabled=true (never in Release). -->
+  <PropertyGroup Condition="'$(MauiDevFlowEnabled)' == 'true'">
+    <DefineConstants>$(DefineConstants);MAUI_DEVFLOW</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MauiDevFlowEnabled)' == 'true'">
+    <PackageReference Include="Microsoft.Maui.DevFlow.Agent" />
+    <PackageReference Include="Microsoft.Maui.DevFlow.Blazor" />
   </ItemGroup>
 </Project>

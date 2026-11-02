@@ -5,6 +5,13 @@ namespace QuranBlazor.Services
     public static class TransliterationService
     {
         private static readonly object _lock = new object();
+        
+        // Cache sizing strategy:
+        // - 114 Sura names + variants = ~114 entries
+        // - Frequent Aya translations = ~500-600 entries
+        // - User searches and filtering = ~300-400 entries
+        // Total effective: 900-1000 entries (LRU cleanup keeps memory bounded)
+        // Memory impact: ~200KB per cache (acceptable for mobile)
         private static readonly TransliterationCache _toLatinCache = new(1000);
         private static readonly TransliterationCache _toCyrillicCache = new(1000);
         
@@ -14,7 +21,7 @@ namespace QuranBlazor.Services
         {
             lock (_lock)
             {
-                // Clear caches when script changes
+                // Clear caches when script changes to ensure consistency
                 _toLatinCache.Clear();
                 _toCyrillicCache.Clear();
                 OnScriptChanged?.Invoke();

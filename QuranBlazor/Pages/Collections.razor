@@ -27,11 +27,7 @@
 
     @if (isLoading)
     {
-        <div class="text-center my-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">@TransliterationService.GetDisplayText("Юкланмоқда..."))</span>
-            </div>
-        </div>
+        <LoadingState Label="Тўпламлар юкланмоқда..." />
     }
     else if (!string.IsNullOrEmpty(errorMessage))
     {
@@ -41,14 +37,12 @@
     }
     else if (collections == null || !collections.Any())
     {
-        <div class="text-center my-5 px-3">
-            <img src="collections_bookmark.svg" class="svg-icon svg-icon-xxl mb-3 opacity-50 svg-icon-light" alt="" />
-            <h4 class="text-muted">@TransliterationService.GetDisplayText("Сизда ҳали тўпламлар йўқ")</h4>
-            <p class="text-muted">@TransliterationService.GetDisplayText("Оятларни тўплай бошлаш учун янги тўплам яратинг")</p>
-            <button class="btn btn-primary rounded-pill mt-3" @onclick="CreateNewCollection">
-                @TransliterationService.GetDisplayText("Биринчи тўпламни яратинг")
-            </button>
-        </div>
+        <EmptyState 
+            IconSrc="collections_bookmark.svg"
+            Title="@TransliterationService.GetDisplayText("Сизда ҳали тўпламлар йўқ")"
+            Message="@TransliterationService.GetDisplayText("Оятларни тўплай бошлаш учун янги тўплам яратинг")"
+            ActionText="@TransliterationService.GetDisplayText("Биринчи тўпламни яратинг")"
+            ActionCallback="@CreateNewCollection" />
     }
     else
     {

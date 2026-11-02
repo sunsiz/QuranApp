@@ -2,6 +2,10 @@
 using Microsoft.Extensions.Logging;
 using QuranBlazor.Data;
 using QuranBlazor.Services;
+#if MAUI_DEVFLOW
+using Microsoft.Maui.DevFlow.Agent;
+using Microsoft.Maui.DevFlow.Blazor;
+#endif
 
 namespace QuranBlazor
 {
@@ -20,6 +24,10 @@ namespace QuranBlazor
 #if DEBUG
             builder.Services.AddBlazorWebViewDeveloperTools();
             builder.Logging.AddDebug();
+#endif
+#if MAUI_DEVFLOW
+            builder.AddMauiDevFlowAgent();
+            builder.AddMauiBlazorDevFlowTools();
 #endif
             builder.Services.AddSingleton<DialogService>();
             // Register DBContext and the SQLite database

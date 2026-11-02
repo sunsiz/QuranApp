@@ -116,7 +116,8 @@
             _highlightRegex = new Regex(escapedKeyword, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
         }
         
-        return _highlightRegex.Replace(textToHighlight, m => $"<span class='search-term'>{m.Value}</span>");
+        // SECURITY: HTML-encode matched text to prevent XSS
+        return _highlightRegex.Replace(textToHighlight, m => $"<span class='search-term'>{System.Net.WebUtility.HtmlEncode(m.Value)}</span>");
     }
     private string ProcessComment(string comment)
     {

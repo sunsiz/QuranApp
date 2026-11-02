@@ -1,0 +1,30 @@
+@* Reusable Loading State Component *@
+
+<div class="loading-state-container">
+    <div class="d-flex flex-column align-items-center justify-content-center">
+        <div class="spinner-border loading-spinner" role="status" aria-live="polite" aria-label="@Label">
+            <span class="visually-hidden">@TransliterationService.GetDisplayText(Label)</span>
+        </div>
+        <p class="loading-text mt-3">@TransliterationService.GetDisplayText(Label)</p>
+    </div>
+</div>
+
+@code {
+    /// <summary>
+    /// Loading message to display (should be in Uzbek)
+    /// </summary>
+    [Parameter]
+    public string Label { get; set; } = "Юкланмоқда...";
+
+    /// <summary>
+    /// Optional custom CSS class for styling
+    /// </summary>
+    [Parameter]
+    public string CssClass { get; set; } = "";
+
+    /// <summary>
+    /// Custom loading message (when different from generic label)
+    /// </summary>
+    [Parameter]
+    public string CustomMessage { get; set; }
+}

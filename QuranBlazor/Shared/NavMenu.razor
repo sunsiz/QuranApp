@@ -4,72 +4,72 @@
 @inject DialogService DialogService
 @implements IDisposable
 <div class="top-row ps-3 navbar sticky-top header-bg-color">
-    <div class="container-fluid d-flex align-items-center">
-        <a class="navbar-brand d-flex flex-grow-1" href="">
+    <div class="container-fluid d-flex align-items-center flex-nowrap">
+        <a class="navbar-brand d-flex flex-grow-1 header-brand" href="">
             <img src="logo.svg" alt="@TransliterationService.GetDisplayText("Ўзбекча таржима")" width="32" height="32" class="d-flex align-text-top">
-            <span class="fs-3 fw-bold d-flex align-self-center text-center mx-auto text-white">@TransliterationService.GetDisplayText("Ўзбекча таржима")</span>
+            <span class="header-title fw-bold d-flex align-self-center text-center mx-auto text-white">@TransliterationService.GetDisplayText("Ўзбекча таржима")</span>
         </a>
         
         <!-- Script Toggle Badge -->
         <button type="button" 
-                class="btn btn-sm script-toggle-badge me-2" 
+                class="btn btn-sm script-toggle-badge flex-shrink-0 me-2" 
                 @onclick="ToggleScript"
                 @onclick:stopPropagation="true"
-                title="@TransliterationService.GetDisplayText("Ёзув турини ўзгартириш")"
-                aria-label="@TransliterationService.GetDisplayText("Ёзув турини ўзгартириш")">
-            <span class="fw-bold">@(TransliterationService.IsLatinScriptSelected ? "Кр" : "La")</span>
+                title="@TransliterationService.GetDisplayText("Ёзув турини ўзгартириш (Кириллица ↔ Латин)")"
+                aria-label="@TransliterationService.GetDisplayText("Ёзув турини ўзгартириш (Кириллица ↔ Латин). Ҳозирги ёзув: " + (TransliterationService.IsLatinScriptSelected ? "Латин" : "Кириллица"))">
+            <span class="fw-bold" aria-hidden="true">@(TransliterationService.IsLatinScriptSelected ? "Крл" : "Лтн")</span>
         </button>
         
         <button title="@TransliterationService.GetDisplayText("Навигация менюси")" 
                 aria-label="@TransliterationService.GetDisplayText("Навигация менюси")" 
-                class="navbar-toggler" 
+                class="navbar-toggler flex-shrink-0" 
                 @onclick="ToggleNavMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
     </div>
 </div>
 
-<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
-    <nav class="flex-column fw-bold">
+<div class="@NavMenuCssClass" @onclick="ToggleNavMenu" role="navigation" aria-label="@TransliterationService.GetDisplayText("Асосий навигация")">
+    <nav class="flex-column fw-bold" aria-label="@TransliterationService.GetDisplayText("Меню элементлари")">
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <img src="home.svg" class="svg-icon svg-icon-lg mx-2" alt="" />
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" aria-label="@TransliterationService.GetDisplayText("Бош саҳифа")">
+                <img src="home.svg" class="svg-icon svg-icon-lg mx-2" alt="" aria-hidden="true" />
                 @TransliterationService.GetDisplayText("Бош саҳифа")
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="Suras" Match="NavLinkMatch.All">
-                <img src="book.svg" class="svg-icon svg-icon-lg mx-2" alt="" />
+            <NavLink class="nav-link" href="Suras" Match="NavLinkMatch.All" aria-label="@TransliterationService.GetDisplayText("Суралар саҳифаси")">
+                <img src="book.svg" class="svg-icon svg-icon-lg mx-2" alt="" aria-hidden="true" />
                 @TransliterationService.GetDisplayText("Суралар")
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="Collections" Match="NavLinkMatch.All">
-                <img src="collections_bookmark.svg" class="svg-icon svg-icon-lg mx-2" alt="" />
+            <NavLink class="nav-link" href="Collections" Match="NavLinkMatch.All" aria-label="@TransliterationService.GetDisplayText("Тўпламлар саҳифаси")">
+                <img src="collections_bookmark.svg" class="svg-icon svg-icon-lg mx-2" alt="" aria-hidden="true" />
                 @TransliterationService.GetDisplayText("Тўпламлар")
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="Notes" Match="NavLinkMatch.All">
-                <img src="edit_note.svg" class="svg-icon svg-icon-lg mx-2" alt="" />
+            <NavLink class="nav-link" href="Notes" Match="NavLinkMatch.All" aria-label="@TransliterationService.GetDisplayText("Қайдлар саҳифаси")">
+                <img src="edit_note.svg" class="svg-icon svg-icon-lg mx-2" alt="" aria-hidden="true" />
                 @TransliterationService.GetDisplayText("Қайдлар")
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="Search" Match="NavLinkMatch.All">
-                <img src="search.svg" class="svg-icon svg-icon-lg mx-2" alt="" />
+            <NavLink class="nav-link" href="Search" Match="NavLinkMatch.All" aria-label="@TransliterationService.GetDisplayText("Излаш саҳифаси")">
+                <img src="search.svg" class="svg-icon svg-icon-lg mx-2" alt="" aria-hidden="true" />
                 @TransliterationService.GetDisplayText("Излаш")
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink type="button" class="nav-link" Match="NavLinkMatch.All" @onclick="() => DisplayPrompt()">
-                <img src="arrow_forward.svg" class="svg-icon svg-icon-lg mx-2" alt="" />
+            <button type="button" class="nav-link btn-link p-0 border-0 text-start" @onclick="() => DisplayPrompt()" aria-label="@TransliterationService.GetDisplayText("Конкрет оятга ўтиш")">
+                <img src="arrow_forward.svg" class="svg-icon svg-icon-lg mx-2" alt="" aria-hidden="true" />
                 @TransliterationService.GetDisplayText("Оятга ўтиш")
-            </NavLink>
+            </button>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="Settings" Match="NavLinkMatch.All">
-                <img src="tune.svg" class="svg-icon svg-icon-lg mx-2" alt="" />
+            <NavLink class="nav-link" href="Settings" Match="NavLinkMatch.All" aria-label="@TransliterationService.GetDisplayText("Созламалар саҳифаси")">
+                <img src="tune.svg" class="svg-icon svg-icon-lg mx-2" alt="" aria-hidden="true" />
                 @TransliterationService.GetDisplayText("Созламалар")
             </NavLink>
         </div>

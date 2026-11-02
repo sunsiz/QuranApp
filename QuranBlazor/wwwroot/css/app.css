@@ -81,16 +81,12 @@
     transform: scale(0.96);
 }
 
-/* List item stagger animation */
+/* List item stagger animation - SIMPLIFIED */
 .row.my-3 {
-    animation: staggerFadeIn 0.5s ease-out backwards;
+    animation: fadeIn 0.5s ease-out;
 }
 
-.row.my-3:nth-child(1) { animation-delay: 0.05s; }
-.row.my-3:nth-child(2) { animation-delay: 0.1s; }
-.row.my-3:nth-child(3) { animation-delay: 0.15s; }
-.row.my-3:nth-child(4) { animation-delay: 0.2s; }
-.row.my-3:nth-child(5) { animation-delay: 0.25s; }
+/* Removed stagger delays - prevents jank on low-end devices */
 
 /* Smooth scroll behavior */
 html {
@@ -103,7 +99,59 @@ html {
 
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
+
+/* Theme-aware base elements */
+.page {
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+.card {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.sidebar, .navbar, .top-row {
+    background-color: var(--bg-secondary);
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+.btn-secondary {
+    background-color: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.alert {
+    background-color: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+input[type="text"],
+input[type="search"],
+input[type="number"],
+textarea,
+select {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border-color: var(--border-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+    input[type="text"]:focus,
+    input[type="search"]:focus,
+    textarea:focus {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-color: var(--primary-color);
+    }
 
 /* Smooth theme transitions - apply to elements that change with theme */
 .page,
@@ -127,26 +175,46 @@ a, .btn-link {
 
 .btn-primary {
     color: #fff;
-    background-color: var(--primary-color);
-    background-image: var(--header-bg-gradient);
-    border-color: var(--primary-color);
+    background: linear-gradient(135deg, #6200EE 0%, #7B1FA2 100%);
+    border: none;
+    border-color: #6200EE;
     transition: all 0.3s ease;
+    min-height: 44px;
+    font-weight: 600;
 }
 
 .btn-primary:hover {
-    background-color: var(--header-bg-color);
-    border-color: var(--header-bg-color);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    background: linear-gradient(135deg, #7B1FA2 0%, #8B2BA8 100%);
+    border-color: #7B1FA2;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(98, 0, 238, 0.3);
 }
 
 .btn-primary:active {
     transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(98, 0, 238, 0.2);
 }
 
 .btn-primary:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    transform: none;
+}
+
+.btn-secondary {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-link {
+    color: #6200EE;
+    text-decoration: none;
+}
+
+.btn-link:hover {
+    color: #7B1FA2;
+    text-decoration: underline;
 }
 
 .content {
@@ -367,7 +435,7 @@ h6 {
     --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
     --input-bg: #ffffff;
     --input-border: #dee2e6;
-    --input-placeholder: #999999;
+    --input-placeholder: #6c757d;
     --aya-number-bg: #8B5A3C;
     --aya-number-text: #ffffff;
     --accent-gold: #C9A868;
@@ -647,7 +715,7 @@ a {
 
 .form-control::placeholder {
     color: var(--input-placeholder);
-    opacity: 0.7;
+    opacity: 1;
 }
 
 .form-control:focus {
