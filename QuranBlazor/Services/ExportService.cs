@@ -70,7 +70,7 @@ namespace QuranBlazor.Services
                         Text = f.Text
                     }).ToList(),
                     ExportDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-                    AppVersion = "2.1"
+                    AppVersion = "2.3"
                 };
 
                 var options = new JsonSerializerOptions

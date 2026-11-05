@@ -16,8 +16,8 @@
     <ApplicationId>org.suleymaniyevakfi.quron</ApplicationId>
     <ApplicationIdGuid>C287D0AE-2445-47A6-ABDA-17EB772275D4</ApplicationIdGuid>
     <!-- Versions -->
-    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
-    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>2.3</ApplicationDisplayVersion>
+    <ApplicationVersion>9</ApplicationVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">27.0</SupportedOSPlatformVersion>
@@ -34,24 +34,27 @@
     <PublishAot>False</PublishAot>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-maccatalyst|AnyCPU'">
-    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.3</ApplicationDisplayVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|AnyCPU'">
-    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.3</ApplicationDisplayVersion>
     <AndroidKeyStore>False</AndroidKeyStore>
     <AndroidSigningStorePass>OzbekceCeviri</AndroidSigningStorePass>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-ios|AnyCPU'">
-    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.3</ApplicationDisplayVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-windows10.0.26100.0|AnyCPU'">
-    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.3</ApplicationDisplayVersion>
   </PropertyGroup>
   
   <!-- Android Release Configuration - Generate debug symbols for Play Store -->
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android|AnyCPU'">
-    <ApplicationDisplayVersion>2.1</ApplicationDisplayVersion>
+    <ApplicationDisplayVersion>2.3</ApplicationDisplayVersion>
     <AndroidPackageFormat>aab</AndroidPackageFormat>
+    <!-- Shrink and safely obfuscate Java bytecode in Release builds. -->
+    <AndroidLinkTool>r8</AndroidLinkTool>
+    <AndroidR8ObfuscationMode>private-members</AndroidR8ObfuscationMode>
     <!-- Generate native debug symbols -->
     <AndroidCreatePackagePerAbi>False</AndroidCreatePackagePerAbi>
     <AndroidKeyStore>False</AndroidKeyStore>
